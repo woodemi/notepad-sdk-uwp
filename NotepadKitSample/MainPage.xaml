@@ -8,7 +8,13 @@
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <Grid>
-
-    </Grid>
+    <RelativePanel>
+        <StackPanel
+            RelativePanel.AlignHorizontalCenterWithPanel="True"
+            RelativePanel.AlignVerticalCenterWithPanel="True"
+            Spacing="5">
+            <Button x:Name="button1" Content="Start Scan" Click="button1_Click" />
+            <Button x:Name="button2" Content="Stop Scan" Click="button2_Click" />
+        </StackPanel>
+    </RelativePanel>
 </Page>
