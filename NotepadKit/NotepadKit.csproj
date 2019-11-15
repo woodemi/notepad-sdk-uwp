@@ -120,7 +120,9 @@
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Common.cs" />
     <Compile Include="NotepadScanner.cs" />
+    <Compile Include="NotepadScanResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\NotepadKit.rd.xml" />
   </ItemGroup>

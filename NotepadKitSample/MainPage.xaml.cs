@@ -1,4 +1,5 @@
-﻿using Windows.UI.Xaml;
+﻿using System.Diagnostics;
+using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using NotepadKit;
 
@@ -11,12 +12,12 @@ namespace NotepadKitSample
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private readonly NotepadScanner _notepadScanner;
+        private readonly NotepadScanner _notepadScanner = new NotepadScanner();
 
         public MainPage()
         {
             InitializeComponent();
-            _notepadScanner = new NotepadScanner();
+            _notepadScanner.Found += (sender, args) => { Debug.WriteLine($"OnNotepadFound {args.BluetoothAddress}"); };
         }
 
         private void button1_Click(object sender, RoutedEventArgs e)
