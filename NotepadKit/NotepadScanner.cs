@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Windows.Devices.Bluetooth.Advertisement;
+using Windows.Foundation;
 
 namespace NotepadKit
 {
@@ -11,6 +12,8 @@ namespace NotepadKit
         {
             _watcher.Received += OnAdvertisementReceived;
         }
+
+        public event TypedEventHandler<NotepadScanner, NotepadScanResult> Found;
 
         public void StartScan()
         {
@@ -27,7 +30,17 @@ namespace NotepadKit
         private void OnAdvertisementReceived(BluetoothLEAdvertisementWatcher watcher,
             BluetoothLEAdvertisementReceivedEventArgs eventArgs)
         {
-            Debug.WriteLine($"OnAdvertisementReceived {eventArgs.BluetoothAddress}");
+            var notepadScanResult = new NotepadScanResult(eventArgs);
+            if (NotepadHelper.Support(notepadScanResult))
+                Found?.Invoke(this, notepadScanResult);
+        }
+    }
+
+    internal static class NotepadHelper
+    {
+        internal static bool Support(NotepadScanResult scanResult)
+        {
+            return scanResult.ManufacturerData?.StartWith(Constants.WOODEMI_PREFIX) == true;
         }
     }
 }
