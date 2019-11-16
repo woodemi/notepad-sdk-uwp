@@ -15,6 +15,8 @@
             Spacing="5">
             <Button x:Name="button1" Content="Start Scan" Click="button1_Click" />
             <Button x:Name="button2" Content="Stop Scan" Click="button2_Click" />
+            <Button x:Name="button3" Content="Connect" Click="button3_Click" />
+            <Button x:Name="button4" Content="Disconnect" Click="button4_Click" />
         </StackPanel>
     </RelativePanel>
 </Page>
