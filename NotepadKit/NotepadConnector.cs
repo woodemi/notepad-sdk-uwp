@@ -11,15 +11,17 @@ namespace NotepadKit
     {
         private BluetoothLEDevice _bluetoothDevice;
         private NotepadClient _notepadClient;
+        private NotepadType _notepadType;
 
         public async void Connect(NotepadScanResult scanResult)
         {
             Debug.WriteLine("NotepadConnector::Connect");
-            _notepadClient = NotepadHelper.Create(scanResult);
-
             _bluetoothDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(scanResult.BluetoothAddress);
             _bluetoothDevice.ConnectionStatusChanged += OnConnectionStatusChanged;
             _bluetoothDevice.GetGattServicesAsync();
+
+            _notepadClient = NotepadHelper.Create(scanResult);
+            _notepadType = new NotepadType(_notepadClient);
         }
 
         public void Disconnect()
@@ -35,7 +37,11 @@ namespace NotepadKit
         {
             Debug.WriteLine(
                 $"OnConnectionStatusChanged {device.BluetoothAddress}, {device.ConnectionStatus.ToString()}");
-            if (device.ConnectionStatus == BluetoothConnectionStatus.Connected) await device.DiscoverServices();
+            if (device.ConnectionStatus == BluetoothConnectionStatus.Connected)
+            {
+                await device.DiscoverServices();
+                await _notepadType.ConfigCharacteristics();
+            }
         }
     }
 
