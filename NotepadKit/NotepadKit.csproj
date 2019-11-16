@@ -120,11 +120,13 @@
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="BleType.cs"/>
     <Compile Include="Common.cs" />
     <Compile Include="NotepadClient.cs"/>
     <Compile Include="NotepadConnector.cs"/>
     <Compile Include="NotepadScanner.cs" />
     <Compile Include="NotepadScanResult.cs" />
+    <Compile Include="NotepadType.cs"/>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="woodemi\WoodemiClient.cs"/>
     <EmbeddedResource Include="Properties\NotepadKit.rd.xml" />
