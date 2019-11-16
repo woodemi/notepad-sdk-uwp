@@ -35,12 +35,4 @@ namespace NotepadKit
                 Found?.Invoke(this, notepadScanResult);
         }
     }
-
-    internal static class NotepadHelper
-    {
-        internal static bool Support(NotepadScanResult scanResult)
-        {
-            return scanResult.ManufacturerData?.StartWith(Constants.WOODEMI_PREFIX) == true;
-        }
-    }
 }
