@@ -1,11 +1,25 @@
+using System;
 using System.Linq;
 using Windows.Storage.Streams;
 
 namespace NotepadKit
 {
-    public static class Constants
+    internal static class NotepadHelper
     {
-        internal static readonly byte[] WOODEMI_PREFIX = {0x57, 0x44, 0x4D};
+        private static readonly byte[] WOODEMI_PREFIX = {0x57, 0x44, 0x4D};
+
+        internal static bool Support(NotepadScanResult scanResult)
+        {
+            return scanResult.ManufacturerData?.StartWith(WOODEMI_PREFIX) == true;
+        }
+
+        internal static NotepadClient Create(NotepadScanResult scanResult)
+        {
+            if (scanResult.ManufacturerData?.StartWith(WOODEMI_PREFIX) == true)
+                return new WoodemiClient();
+
+            throw new Exception("Unsupported BLE device");
+        }
     }
 
     internal static class Extensions
