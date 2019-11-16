@@ -121,6 +121,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Common.cs" />
+    <Compile Include="NotepadConnector.cs"/>
     <Compile Include="NotepadScanner.cs" />
     <Compile Include="NotepadScanResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
