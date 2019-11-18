@@ -21,7 +21,7 @@ namespace NotepadKit
             _bluetoothDevice.GetGattServicesAsync();
 
             _notepadClient = NotepadHelper.Create(scanResult);
-            _notepadType = new NotepadType(_notepadClient);
+            _notepadType = new NotepadType(_notepadClient, new BleType(_bluetoothDevice));
         }
 
         public void Disconnect()
@@ -49,10 +49,11 @@ namespace NotepadKit
     {
         internal static async Task DiscoverServices(this BluetoothLEDevice device)
         {
-            var serviceResult = await device.GetGattServicesAsync();
-            if (serviceResult.Status != GattCommunicationStatus.Success) return;
+            var result = await device.GetGattServicesAsync();
+            if (result.Status != GattCommunicationStatus.Success)
+                throw new Exception($"GetGattServicesAsync {result}");
 
-            await Task.WhenAll(serviceResult.Services.Select(ConfirmCharacteristics));
+            await Task.WhenAll(result.Services.Select(ConfirmCharacteristics));
         }
 
         private static async Task ConfirmCharacteristics(GattDeviceService service)

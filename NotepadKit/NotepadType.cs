@@ -9,25 +9,26 @@ namespace NotepadKit
         Indication
     }
 
-    public class NotepadType
+    internal class NotepadType
     {
         private BleType _bleType;
         private readonly NotepadClient _notepadClient;
 
-        public NotepadType(NotepadClient notepadClient)
+        internal NotepadType(NotepadClient notepadClient, BleType bleType)
         {
+            _bleType = bleType;
             _notepadClient = notepadClient;
         }
 
         public async Task ConfigCharacteristics()
         {
             foreach (var characteristic in _notepadClient.InputIndicationCharacteristics)
-                ConfigInputCharacteristic(characteristic, BleInputProperty.Indication);
+                await ConfigInputCharacteristic(characteristic, BleInputProperty.Indication);
         }
 
-        private void ConfigInputCharacteristic((string, string) serviceCharacteristic, BleInputProperty inputProperty)
+        private async Task ConfigInputCharacteristic((string, string) serviceCharacteristic, BleInputProperty inputProperty)
         {
-            _bleType.SetNotifiable(serviceCharacteristic, inputProperty);
+            await _bleType.SetNotifiable(serviceCharacteristic, inputProperty);
         }
     }
 }
