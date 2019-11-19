@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
@@ -10,10 +12,15 @@ namespace NotepadKit
     {
         private readonly BluetoothLEDevice _bluetoothDevice;
 
+        private readonly Channel<(string, byte[])> _inputChannel =
+            Channel.CreateUnbounded<(string, byte[])>(new UnboundedChannelOptions());
+
         public BleType(BluetoothLEDevice bluetoothDevice)
         {
             _bluetoothDevice = bluetoothDevice;
         }
+
+        public ChannelReader<(string, byte[])> InputChannelReader => _inputChannel.Reader;
 
         private async Task<GattCharacteristic> GetCharacteristic((string, string) serviceCharacteristic)
         {
@@ -38,6 +45,18 @@ namespace NotepadKit
                 await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(descriptorValue);
             if (descriptorStatus != GattCommunicationStatus.Success)
                 throw new Exception($"{characteristic.Service.Uuid} {characteristic.Uuid} setNotifiable fail");
+
+            if (inputProperty != BleInputProperty.Disabled)
+                characteristic.ValueChanged += OnCharacteristicValueChanged;
+            else
+                characteristic.ValueChanged -= OnCharacteristicValueChanged;
+        }
+
+        private void OnCharacteristicValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
+        {
+            var value = args.CharacteristicValue.ToByteArray();
+            Debug.WriteLine($"OnCharacteristicValueChanged {sender.Uuid}, {value.ToHexString()}");
+            _inputChannel.Writer.WriteAsync((sender.Uuid.ToString().ToUpper(), value));
         }
 
         public async Task WriteValue((string, string) serviceCharacteristic, byte[] request)

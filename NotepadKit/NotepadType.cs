@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
@@ -45,9 +46,29 @@ namespace NotepadKit
             Debug.WriteLine($"on{messageHead}Send: {request.ToHexString()}");
         }
 
-        public async Task ExecuteCommand<Response>(WoodemiCommand<Response> command)
+        private async Task<byte[]> ReceiveValue((string, string) serviceCharacteristic)
+        {
+            var (characteristicId, value) = await _bleType.InputChannelReader.ReadAsync();
+            if (characteristicId != serviceCharacteristic.Item2)
+                throw new Exception("Unknown response");
+
+            return value;
+        }
+
+        public async Task<byte[]> ReceiveResponseAsync(string messageHead, (string, string) serviceCharacteristic,
+            Func<byte[], bool> predict)
+        {
+            var value = await ReceiveValue(serviceCharacteristic);
+            Debug.WriteLine($"on{messageHead}Receive: {value.ToHexString()}");
+            return value;
+        }
+
+        public async Task<Response> ExecuteCommand<Response>(WoodemiCommand<Response> command)
         {
             await SendRequestAsync("Command", _notepadClient.CommandRequestCharacteristic, command.request);
+            var response = await ReceiveResponseAsync("Command", _notepadClient.CommandResponseCharacteristic,
+                command.intercept);
+            return command.handle(response);
         }
     }
 }
