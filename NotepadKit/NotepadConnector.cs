@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using Windows.Devices.Bluetooth;
+using Windows.Foundation;
 
 namespace NotepadKit
 {
@@ -9,6 +10,8 @@ namespace NotepadKit
         private BluetoothLEDevice _bluetoothDevice;
         private NotepadClient _notepadClient;
         private NotepadType _notepadType;
+
+        public event TypedEventHandler<NotepadClient, ConnectionState> ConnectionChanged;
 
         public async void Connect(NotepadScanResult scanResult)
         {
@@ -19,6 +22,8 @@ namespace NotepadKit
 
             _notepadClient = NotepadHelper.Create(scanResult);
             _notepadType = new NotepadType(_notepadClient, new BleType(_bluetoothDevice));
+
+            ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connecting);
         }
 
         public void Disconnect()
@@ -34,9 +39,16 @@ namespace NotepadKit
         {
             Debug.WriteLine(
                 $"OnConnectionStatusChanged {device.BluetoothAddress}, {device.ConnectionStatus.ToString()}");
-            if (device.ConnectionStatus != BluetoothConnectionStatus.Connected) return;
-            await _notepadType.ConfigCharacteristics();
-            await _notepadClient.CompleteConnection();
+            if (device.ConnectionStatus == BluetoothConnectionStatus.Connected)
+            {
+                await _notepadType.ConfigCharacteristics();
+                await _notepadClient.CompleteConnection();
+                ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connected);
+            }
+            else
+            {
+                ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Disconnected);
+            }
         }
     }
 }
