@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.Threading.Channels;
 using System.Threading.Tasks;
+using Windows.Foundation;
 
 namespace NotepadKit
 {
@@ -16,7 +18,7 @@ namespace NotepadKit
         private readonly BleType _bleType;
         private readonly NotepadClient _notepadClient;
 
-        internal NotepadType(NotepadClient notepadClient, BleType bleType)
+        public NotepadType(NotepadClient notepadClient, BleType bleType)
         {
             _bleType = bleType;
             _notepadClient = notepadClient;
@@ -46,21 +48,43 @@ namespace NotepadKit
             Debug.WriteLine($"on{messageHead}Send: {request.ToHexString()}");
         }
 
-        private async Task<byte[]> ReceiveValue((string, string) serviceCharacteristic)
+        private void OnInputReceived(string characteristic, byte[] value)
         {
-            var (characteristicId, value) = await _bleType.InputChannelReader.ReadAsync();
-            if (characteristicId != serviceCharacteristic.Item2)
-                throw new Exception("Unknown response");
+            Debug.WriteLine("OnInputReceived ");
+        }
 
-            return value;
+        private async Task<byte[]> ReadValue((string, string) serviceCharacteristic)
+        {
+            var channel = Channel.CreateUnbounded<(string, byte[])>(new UnboundedChannelOptions());
+            TypedEventHandler<string, byte[]> OnInputReceived =
+                (sender, args) => channel.Writer.WriteAsync((sender, args));
+            _bleType.InputReceived += OnInputReceived;
+            try
+            {
+                while (true)
+                {
+                    var (characteristic, value) = await channel.Reader.ReadAsync();
+                    if (characteristic == serviceCharacteristic.Item2)
+                        return value;
+                }
+            }
+            finally
+            {
+                _bleType.InputReceived -= OnInputReceived;
+            }
         }
 
         public async Task<byte[]> ReceiveResponseAsync(string messageHead, (string, string) serviceCharacteristic,
             Func<byte[], bool> predict)
         {
-            var value = await ReceiveValue(serviceCharacteristic);
-            Debug.WriteLine($"on{messageHead}Receive: {value.ToHexString()}");
-            return value;
+            // TODO Timeout
+            while (true)
+            {
+                var value = await ReadValue(serviceCharacteristic);
+                if (!predict(value)) continue;
+                Debug.WriteLine($"on{messageHead}Receive: {value.ToHexString()}");
+                return value;
+            }
         }
 
         public async Task<Response> ExecuteCommand<Response>(WoodemiCommand<Response> command)
