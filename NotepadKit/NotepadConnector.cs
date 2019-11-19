@@ -1,9 +1,6 @@
 using System;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
 using Windows.Devices.Bluetooth;
-using Windows.Devices.Bluetooth.GenericAttributeProfile;
 
 namespace NotepadKit
 {
@@ -37,35 +34,9 @@ namespace NotepadKit
         {
             Debug.WriteLine(
                 $"OnConnectionStatusChanged {device.BluetoothAddress}, {device.ConnectionStatus.ToString()}");
-            if (device.ConnectionStatus == BluetoothConnectionStatus.Connected)
-            {
-                await device.DiscoverServices();
-                await _notepadType.ConfigCharacteristics();
-                await _notepadClient.CompleteConnection();
-            }
-        }
-    }
-
-    internal static class BluetoothLEDeviceExtension
-    {
-        internal static async Task DiscoverServices(this BluetoothLEDevice device)
-        {
-            var result = await device.GetGattServicesAsync();
-            if (result.Status != GattCommunicationStatus.Success)
-                throw new Exception($"GetGattServicesAsync {result}");
-
-            await Task.WhenAll(result.Services.Select(ConfirmCharacteristics));
-        }
-
-        private static async Task ConfirmCharacteristics(GattDeviceService service)
-        {
-            var result = await service.GetCharacteristicsAsync();
-            if (result.Status != GattCommunicationStatus.Success)
-                throw new Exception($"GetCharacteristicsAsync {result}");
-
-            Debug.WriteLine($"service {service.Uuid}");
-            foreach (var characteristic in result.Characteristics)
-                Debug.WriteLine($"  characteristic {characteristic.Uuid}");
+            if (device.ConnectionStatus != BluetoothConnectionStatus.Connected) return;
+            await _notepadType.ConfigCharacteristics();
+            await _notepadClient.CompleteConnection();
         }
     }
 }
