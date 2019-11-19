@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -26,15 +27,35 @@ namespace NotepadKit
             await CheckAccess(new byte[] {0x00, 0x00, 0x00, 0x01}, 10);
         }
 
-        private async Task CheckAccess(byte[] authToken, int seconds)
+        private async Task<AccessResult> CheckAccess(byte[] authToken, int seconds)
         {
-            var command = new WoodemiCommand<object>
+            var command = new WoodemiCommand<byte>
             {
                 request = new byte[] {0x01, (byte) seconds}.Concat(authToken).ToArray(),
                 intercept = bytes => bytes.First() == 0x02,
-                handle = null
+                handle = bytes => bytes[1]
             };
-            await _notepadType.ExecuteCommand(command);
+            switch (await _notepadType.ExecuteCommand(command))
+            {
+                case 0x00:
+                    return AccessResult.Denied;
+                case 0x01:
+                    var confirm = await _notepadType.ReceiveResponseAsync("Confirm", CommandResponseCharacteristic,
+                        bytes => bytes.First() == 0x03);
+                    return confirm[1] == 0 ? AccessResult.Confirmed : AccessResult.Unconfirmed;
+                case 0x02:
+                    return AccessResult.Approved;
+                default:
+                    throw new Exception("Unknown error");
+            }
+        }
+
+        private enum AccessResult
+        {
+            Denied, // Device claimed by other user
+            Confirmed, // Access confirmed, indicating device not claimed by anyone
+            Unconfirmed, // Access unconfirmed, as user doesn't confirm before timeout
+            Approved // Device claimed by this user
         }
     }
 }
