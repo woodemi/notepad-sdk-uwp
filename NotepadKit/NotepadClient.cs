@@ -10,7 +10,11 @@ namespace NotepadKit
 
         public abstract (string, string) CommandResponseCharacteristic { get; }
 
+        public abstract (string, string) SyncInputCharacteristic { get; }
+
         public abstract IReadOnlyList<(string, string)> InputIndicationCharacteristics { get; }
+
+        public abstract IReadOnlyList<(string, string)> InputNotificationCharacteristics { get; }
 
         internal abstract Task CompleteConnection();
     }
