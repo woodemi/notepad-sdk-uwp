@@ -29,6 +29,8 @@ namespace NotepadKit
         {
             foreach (var characteristic in _notepadClient.InputIndicationCharacteristics)
                 await ConfigInputCharacteristic(characteristic, BleInputProperty.Indication);
+            foreach (var characteristic in _notepadClient.InputNotificationCharacteristics)
+                await ConfigInputCharacteristic(characteristic, BleInputProperty.Notification);
         }
 
         private async Task ConfigInputCharacteristic((string, string) serviceCharacteristic,

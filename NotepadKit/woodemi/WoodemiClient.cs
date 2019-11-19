@@ -13,13 +13,23 @@ namespace NotepadKit
         private static readonly string CHAR__COMMAND_REQUEST = $"57444E02-{SUFFIX}";
         private static readonly string CHAR__COMMAND_RESPONSE = CHAR__COMMAND_REQUEST;
 
+        private static readonly string SERV__SYNC = $"57444D06-{SUFFIX}";
+        private static readonly string CHAR__SYNC_INPUT = $"57444D07-{SUFFIX}";
+
         public override (string, string) CommandRequestCharacteristic => (SERV__COMMAND, CHAR__COMMAND_REQUEST);
 
         public override (string, string) CommandResponseCharacteristic => (SERV__COMMAND, CHAR__COMMAND_RESPONSE);
 
+        public override (string, string) SyncInputCharacteristic => (SERV__SYNC, CHAR__SYNC_INPUT);
+
         public override IReadOnlyList<(string, string)> InputIndicationCharacteristics => new List<(string, string)>
         {
             CommandResponseCharacteristic
+        };
+
+        public override IReadOnlyList<(string, string)> InputNotificationCharacteristics => new List<(string, string)>
+        {
+            SyncInputCharacteristic
         };
 
         internal override async Task CompleteConnection()
