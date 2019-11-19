@@ -35,6 +35,18 @@ namespace NotepadKit
             return bytes;
         }
 
+        public static IBuffer ToBuffer(this byte[] value)
+        {
+            var writer = new DataWriter();
+            writer.WriteBytes(value);
+            return writer.DetachBuffer();
+        }
+
+        public static string ToHexString(this byte[] value)
+        {
+            return BitConverter.ToString(value);
+        }
+
         public static bool StartWith(this byte[] value, byte[] prefix)
         {
             return value.Length >= prefix.Length && Enumerable.Range(0, prefix.Length).All(i => value[i] == prefix[i]);

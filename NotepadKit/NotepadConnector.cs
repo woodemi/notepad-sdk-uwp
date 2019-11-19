@@ -41,6 +41,7 @@ namespace NotepadKit
             {
                 await device.DiscoverServices();
                 await _notepadType.ConfigCharacteristics();
+                await _notepadClient.CompleteConnection();
             }
         }
     }
