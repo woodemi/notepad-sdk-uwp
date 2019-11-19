@@ -20,14 +20,18 @@ namespace NotepadKit
     {
         internal static byte[] ManufacturerByteArray(this BluetoothLEAdvertisement advertisement)
         {
-            if (advertisement.ManufacturerData.Count > 0)
-            {
-                var manufacturerData = advertisement.ManufacturerData[0];
-                return BitConverter.GetBytes(manufacturerData.CompanyId).Concat(manufacturerData.Data.ToByteArray())
-                    .ToArray();
-            }
-
-            return null;
+            if (advertisement.ManufacturerData.Count == 0) return null;
+            var manufacturerData = advertisement.ManufacturerData[0];
+            return BitConverter.GetBytes(manufacturerData.CompanyId).Concat(manufacturerData.Data.ToByteArray())
+                .ToArray();
         }
+    }
+
+    public enum ConnectionState
+    {
+        Disconnected,
+        Connecting,
+        AwaitConfirm,
+        Connected
     }
 }
