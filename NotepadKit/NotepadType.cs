@@ -1,5 +1,7 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Reactive.Linq;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Windows.Foundation;
@@ -50,51 +52,29 @@ namespace NotepadKit
             Debug.WriteLine($"on{messageHead}Send: {request.ToHexString()}");
         }
 
-        private void OnInputReceived(string characteristic, byte[] value)
+        private IObservable<byte[]> ReceiveValue((string, string) serviceCharacteristic)
         {
-            Debug.WriteLine("OnInputReceived ");
-        }
-
-        private async Task<byte[]> ReadValue((string, string) serviceCharacteristic)
-        {
-            var channel = Channel.CreateUnbounded<(string, byte[])>(new UnboundedChannelOptions());
-            TypedEventHandler<string, byte[]> OnInputReceived =
-                (sender, args) => channel.Writer.WriteAsync((sender, args));
-            _bleType.InputReceived += OnInputReceived;
-            try
-            {
-                while (true)
-                {
-                    var (characteristic, value) = await channel.Reader.ReadAsync();
-                    if (characteristic == serviceCharacteristic.Item2)
-                        return value;
-                }
-            }
-            finally
-            {
-                _bleType.InputReceived -= OnInputReceived;
-            }
+            var observable = Observable.FromEvent<TypedEventHandler<string, byte[]>, (string, byte[])>(
+                rxHandler => (sender, args) => rxHandler((sender, args)),
+                handler => _bleType.InputReceived += handler,
+                handler => _bleType.InputReceived -= handler);
+            return observable.Where(e => e.Item1 == serviceCharacteristic.Item2).Select(e => e.Item2);
         }
 
         public async Task<byte[]> ReceiveResponseAsync(string messageHead, (string, string) serviceCharacteristic,
             Func<byte[], bool> predict)
         {
-            // TODO Timeout
-            while (true)
-            {
-                var value = await ReadValue(serviceCharacteristic);
-                if (!predict(value)) continue;
-                Debug.WriteLine($"on{messageHead}Receive: {value.ToHexString()}");
-                return value;
-            }
+            var value = await ReceiveValue(serviceCharacteristic).FirstAsync(predict);
+            Debug.WriteLine($"on{messageHead}Receive: {value.ToHexString()}");
+            return value;
         }
 
         public async Task<Response> ExecuteCommand<Response>(WoodemiCommand<Response> command)
         {
-            await SendRequestAsync("Command", _notepadClient.CommandRequestCharacteristic, command.request);
-            var response = await ReceiveResponseAsync("Command", _notepadClient.CommandResponseCharacteristic,
+            var receiveResponse = ReceiveResponseAsync("Command", _notepadClient.CommandResponseCharacteristic,
                 command.intercept);
-            return command.handle(response);
+            await SendRequestAsync("Command", _notepadClient.CommandRequestCharacteristic, command.request);
+            return command.handle(await receiveResponse);
         }
     }
 }
