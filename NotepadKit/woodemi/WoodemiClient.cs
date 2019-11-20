@@ -16,7 +16,10 @@ namespace NotepadKit
         private static readonly string SERV__SYNC = $"57444D06-{SUFFIX}";
         private static readonly string CHAR__SYNC_INPUT = $"57444D07-{SUFFIX}";
 
-        private readonly byte[] DEFAULT_AUTH_TOKEN = {0x00, 0x00, 0x00, 0x01};
+        private static readonly byte[] DEFAULT_AUTH_TOKEN = {0x00, 0x00, 0x00, 0x01};
+
+        private static readonly int A1_WIDTH = 14800;
+        private static readonly int A1_HEIGHT = 21000;
 
         public override (string, string) CommandRequestCharacteristic => (SERV__COMMAND, CHAR__COMMAND_REQUEST);
 
@@ -36,6 +39,7 @@ namespace NotepadKit
 
         internal override async Task CompleteConnection(Action<bool> awaitConfirm)
         {
+            await base.CompleteConnection(awaitConfirm);
             await CheckAccess(DEFAULT_AUTH_TOKEN, 10, awaitConfirm);
         }
 
@@ -74,6 +78,12 @@ namespace NotepadKit
             var response = await _notepadType.ExecuteCommand(command);
             if (response[4] != 0)
                 throw new Exception($"WOODEMI_COMMAND fail: response {response.ToHexString()}");
+        }
+
+        protected override List<NotePenPointer> ParseSyncData(byte[] value)
+        {
+            return NotePenPointer.Create(value)
+                .Where(p => 0 <= p.x && p.x <= A1_WIDTH && 0 <= p.y && p.y <= A1_HEIGHT).ToList();
         }
 
         private enum AccessResult

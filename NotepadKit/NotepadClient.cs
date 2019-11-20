@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Windows.Foundation;
 
 namespace NotepadKit
 {
@@ -17,8 +18,15 @@ namespace NotepadKit
 
         public abstract IReadOnlyList<(string, string)> InputNotificationCharacteristics { get; }
 
-        internal abstract Task CompleteConnection(Action<bool> awaitConfirm);
+        internal virtual async Task CompleteConnection(Action<bool> awaitConfirm)
+        {
+            _notepadType.ReceiveSyncInput().Subscribe(value => SyncPointerReceived?.Invoke(this, ParseSyncData(value)));
+        }
+
+        public event TypedEventHandler<NotepadClient, List<NotePenPointer>> SyncPointerReceived;
 
         public abstract Task SetMode(NotepadMode mode);
+
+        protected abstract List<NotePenPointer> ParseSyncData(byte[] value);
     }
 }

@@ -40,4 +40,29 @@ namespace NotepadKit
         Sync,
         Common
     }
+
+    public struct NotePenPointer
+    {
+        public int x;
+        public int y;
+        public long t;
+        public int p;
+
+        public static NotePenPointer[] Create(byte[] bytes)
+        {
+            // TODO BitConverter.IsLittleEndian
+            return Enumerable.Range(0, bytes.Length / 6).Select(i => new NotePenPointer
+            {
+                x = BitConverter.ToInt16(bytes, i * 6),
+                y = BitConverter.ToInt16(bytes, i * 6 + 2),
+                t = -1,
+                p = BitConverter.ToInt16(bytes, i * 6 + 4)
+            }).ToArray();
+        }
+
+        public override string ToString()
+        {
+            return $"x: {x}, y: {y}, t: {t}, p: {p}";
+        }
+    }
 }
