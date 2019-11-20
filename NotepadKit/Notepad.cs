@@ -34,4 +34,10 @@ namespace NotepadKit
         AwaitConfirm,
         Connected
     }
+
+    public enum NotepadMode
+    {
+        Sync,
+        Common
+    }
 }

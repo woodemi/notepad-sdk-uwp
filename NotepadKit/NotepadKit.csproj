@@ -128,7 +128,6 @@
     <Compile Include="Notepad.cs" />
     <Compile Include="NotepadType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="woodemi\Notepad.cs" />
     <Compile Include="woodemi\WoodemiClient.cs" />
     <Compile Include="woodemi\WoodemiCommand.cs" />
     <EmbeddedResource Include="Properties\NotepadKit.rd.xml" />
