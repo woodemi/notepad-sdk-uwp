@@ -1,8 +1,6 @@
 using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Reactive.Linq;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Windows.Foundation;
 
@@ -75,6 +73,16 @@ namespace NotepadKit
                 command.intercept);
             await SendRequestAsync("Command", _notepadClient.CommandRequestCharacteristic, command.request);
             return command.handle(await receiveResponse);
+        }
+
+        public IObservable<byte[]> ReceiveSyncInput()
+        {
+            return ReceiveValue(_notepadClient.SyncInputCharacteristic).Select(
+                value =>
+                {
+                    Debug.WriteLine($"OnSyncInputReceive: {value.ToHexString()}");
+                    return value;
+                });
         }
     }
 }

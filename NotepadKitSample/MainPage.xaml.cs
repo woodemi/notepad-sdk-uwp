@@ -32,12 +32,21 @@ namespace NotepadKitSample
             if (args == ConnectionState.Connected)
             {
                 _notepadClient = sender;
+                _notepadClient.SyncPointerReceived += OnSyncPointerReceived;
                 _notepadClient.SetMode(NotepadMode.Sync);
             }
             else
             {
+                if (_notepadClient != null)
+                    _notepadClient.SyncPointerReceived -= OnSyncPointerReceived;
                 _notepadClient = null;
             }
+        }
+
+        private void OnSyncPointerReceived(NotepadClient sender, List<NotePenPointer> args)
+        {
+            foreach (var pointer in args)
+                Debug.WriteLine($"OnSyncPointerReceived {pointer}");
         }
 
         private void button1_Click(object sender, RoutedEventArgs e)
