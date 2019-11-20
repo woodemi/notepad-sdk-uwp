@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -16,6 +17,6 @@ namespace NotepadKit
 
         public abstract IReadOnlyList<(string, string)> InputNotificationCharacteristics { get; }
 
-        internal abstract Task CompleteConnection();
+        internal abstract Task CompleteConnection(Action<bool> awaitConfirm);
     }
 }

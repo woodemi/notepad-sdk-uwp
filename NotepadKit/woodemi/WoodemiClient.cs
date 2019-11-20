@@ -16,6 +16,8 @@ namespace NotepadKit
         private static readonly string SERV__SYNC = $"57444D06-{SUFFIX}";
         private static readonly string CHAR__SYNC_INPUT = $"57444D07-{SUFFIX}";
 
+        private readonly byte[] DEFAULT_AUTH_TOKEN = {0x00, 0x00, 0x00, 0x01};
+
         public override (string, string) CommandRequestCharacteristic => (SERV__COMMAND, CHAR__COMMAND_REQUEST);
 
         public override (string, string) CommandResponseCharacteristic => (SERV__COMMAND, CHAR__COMMAND_RESPONSE);
@@ -32,12 +34,12 @@ namespace NotepadKit
             SyncInputCharacteristic
         };
 
-        internal override async Task CompleteConnection()
+        internal override async Task CompleteConnection(Action<bool> awaitConfirm)
         {
-            await CheckAccess(new byte[] {0x00, 0x00, 0x00, 0x01}, 10);
+            await CheckAccess(DEFAULT_AUTH_TOKEN, 10, awaitConfirm);
         }
 
-        private async Task<AccessResult> CheckAccess(byte[] authToken, int seconds)
+        private async Task<AccessResult> CheckAccess(byte[] authToken, int seconds, Action<bool> awaitConfirm)
         {
             var command = new WoodemiCommand<byte>
             {
@@ -50,6 +52,7 @@ namespace NotepadKit
                 case 0x00:
                     return AccessResult.Denied;
                 case 0x01:
+                    awaitConfirm(true);
                     var confirm = await _notepadType.ReceiveResponseAsync("Confirm", CommandResponseCharacteristic,
                         bytes => bytes.First() == 0x03);
                     return confirm[1] == 0 ? AccessResult.Confirmed : AccessResult.Unconfirmed;

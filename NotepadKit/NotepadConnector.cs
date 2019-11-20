@@ -42,7 +42,8 @@ namespace NotepadKit
             if (device.ConnectionStatus == BluetoothConnectionStatus.Connected)
             {
                 await _notepadType.ConfigCharacteristics();
-                await _notepadClient.CompleteConnection();
+                await _notepadClient.CompleteConnection(awaitConfirm =>
+                    ConnectionChanged?.Invoke(_notepadClient, ConnectionState.AwaitConfirm));
                 ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connected);
             }
             else

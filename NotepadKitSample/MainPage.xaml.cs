@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -21,6 +22,10 @@ namespace NotepadKitSample
         {
             InitializeComponent();
             _notepadScanner.Found += (sender, args) => { _scanResultList.Add(args); };
+            _notepadConnector.ConnectionChanged += (sender, args) =>
+            {
+                Debug.WriteLine($"OnConnectionChanged {args}");
+            };
         }
 
         private void button1_Click(object sender, RoutedEventArgs e)
