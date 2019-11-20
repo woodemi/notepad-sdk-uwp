@@ -17,15 +17,27 @@ namespace NotepadKitSample
         private readonly NotepadConnector _notepadConnector = new NotepadConnector();
         private readonly NotepadScanner _notepadScanner = new NotepadScanner();
         private readonly List<NotepadScanResult> _scanResultList = new List<NotepadScanResult>();
+        private NotepadClient _notepadClient;
 
         public MainPage()
         {
             InitializeComponent();
             _notepadScanner.Found += (sender, args) => { _scanResultList.Add(args); };
-            _notepadConnector.ConnectionChanged += (sender, args) =>
+            _notepadConnector.ConnectionChanged += OnConnectionChanged;
+        }
+
+        private void OnConnectionChanged(NotepadClient sender, ConnectionState args)
+        {
+            Debug.WriteLine($"OnConnectionChanged {args}");
+            if (args == ConnectionState.Connected)
             {
-                Debug.WriteLine($"OnConnectionChanged {args}");
-            };
+                _notepadClient = sender;
+                _notepadClient.SetMode(NotepadMode.Sync);
+            }
+            else
+            {
+                _notepadClient = null;
+            }
         }
 
         private void button1_Click(object sender, RoutedEventArgs e)
