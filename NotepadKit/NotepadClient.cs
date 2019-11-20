@@ -18,5 +18,7 @@ namespace NotepadKit
         public abstract IReadOnlyList<(string, string)> InputNotificationCharacteristics { get; }
 
         internal abstract Task CompleteConnection(Action<bool> awaitConfirm);
+
+        public abstract Task SetMode(NotepadMode mode);
     }
 }

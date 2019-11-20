@@ -63,6 +63,19 @@ namespace NotepadKit
             }
         }
 
+        public override async Task SetMode(NotepadMode mode)
+        {
+            var command = new WoodemiCommand<byte[]>
+            {
+                request = new byte[] {0x05, 0x00},
+                intercept = bytes => bytes.First() == 0x07 && bytes[1] == 0x05,
+                handle = bytes => bytes
+            };
+            var response = await _notepadType.ExecuteCommand(command);
+            if (response[4] != 0)
+                throw new Exception($"WOODEMI_COMMAND fail: response {response.ToHexString()}");
+        }
+
         private enum AccessResult
         {
             Denied, // Device claimed by other user
