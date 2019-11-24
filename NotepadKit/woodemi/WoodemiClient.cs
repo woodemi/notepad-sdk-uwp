@@ -43,6 +43,14 @@ namespace NotepadKit
             await CheckAccess(DEFAULT_AUTH_TOKEN, 10, awaitConfirm);
         }
 
+        private enum AccessResult
+        {
+            Denied, // Device claimed by other user
+            Confirmed, // Access confirmed, indicating device not claimed by anyone
+            Unconfirmed, // Access unconfirmed, as user doesn't confirm before timeout
+            Approved // Device claimed by this user
+        }
+
         private async Task<AccessResult> CheckAccess(byte[] authToken, int seconds, Action<bool> awaitConfirm)
         {
             var command = new WoodemiCommand<byte>
@@ -84,14 +92,6 @@ namespace NotepadKit
         {
             return NotePenPointer.Create(value)
                 .Where(p => 0 <= p.x && p.x <= A1_WIDTH && 0 <= p.y && p.y <= A1_HEIGHT).ToList();
-        }
-
-        private enum AccessResult
-        {
-            Denied, // Device claimed by other user
-            Confirmed, // Access confirmed, indicating device not claimed by anyone
-            Unconfirmed, // Access unconfirmed, as user doesn't confirm before timeout
-            Approved // Device claimed by this user
         }
     }
 }
