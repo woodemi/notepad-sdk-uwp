@@ -65,4 +65,18 @@ namespace NotepadKit
             return $"x: {x}, y: {y}, t: {t}, p: {p}";
         }
     }
+
+    public struct MemoSummary
+    {
+        public long totalCapacity;
+        public long freeCapacity;
+        public long usedCapacity;
+        public int memoCount;
+
+        public override string ToString()
+        {
+            return
+                $"memoCount: {memoCount}, totalCapacity: {totalCapacity}, freeCapacity: {freeCapacity}, usedCapacity: {usedCapacity}";
+        }
+    }
 }

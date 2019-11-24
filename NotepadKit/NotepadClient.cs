@@ -28,5 +28,7 @@ namespace NotepadKit
         public abstract Task SetMode(NotepadMode mode);
 
         protected abstract List<NotePenPointer> ParseSyncData(byte[] value);
+
+        public abstract Task<MemoSummary> GetMemoSummary();
     }
 }

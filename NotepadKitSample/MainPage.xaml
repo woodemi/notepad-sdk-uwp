@@ -12,11 +12,19 @@
         <StackPanel
             RelativePanel.AlignHorizontalCenterWithPanel="True"
             RelativePanel.AlignVerticalCenterWithPanel="True"
-            Spacing="5">
-            <Button x:Name="button1" Content="Start Scan" Click="button1_Click" />
-            <Button x:Name="button2" Content="Stop Scan" Click="button2_Click" />
-            <Button x:Name="button3" Content="Connect" Click="button3_Click" />
-            <Button x:Name="button4" Content="Disconnect" Click="button4_Click" />
+            Orientation="Horizontal"
+            Spacing="20">
+
+            <StackPanel Spacing="5">
+                <Button x:Name="button1" Content="Start Scan" Click="button1_Click" />
+                <Button x:Name="button2" Content="Stop Scan" Click="button2_Click" />
+                <Button x:Name="button3" Content="Connect" Click="button3_Click" />
+                <Button x:Name="button4" Content="Disconnect" Click="button4_Click" />
+            </StackPanel>
+
+            <StackPanel Spacing="5">
+                <Button x:Name="button5" Content="GetMemoSummary" Click="button5_Click" />
+            </StackPanel>
         </StackPanel>
     </RelativePanel>
 </Page>
