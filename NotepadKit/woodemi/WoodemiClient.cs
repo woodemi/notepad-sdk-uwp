@@ -134,7 +134,7 @@ namespace NotepadKit
             var largeDataInfo = await GetLargeDataInfo();
             return new MemoInfo
             {
-                sizeInByte = largeDataInfo.sizeInByte - ImageTransportation.EMPTY_LENGTH,
+                sizeInByte = largeDataInfo.sizeInByte - ImageTransmission.EMPTY_LENGTH,
                 createdAt = largeDataInfo.createdAt,
                 partIndex = largeDataInfo.partIndex,
                 restCount = largeDataInfo.restCount
