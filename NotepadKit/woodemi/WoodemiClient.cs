@@ -222,7 +222,7 @@ namespace NotepadKit
             {
                 var currentPos = data.Length;
                 var blockProgress = 0;
-                var blockChunkDictionary = await RequestForNextBlock(currentPos, totalSize)
+                var blockChunkDictionary = await (await RequestForNextBlock(currentPos, totalSize))
                     .Aggregate(new Dictionary<int, byte[]>(), (acc, value) =>
                     {
                         blockProgress += value.Item2.Length;
@@ -238,8 +238,61 @@ namespace NotepadKit
 
             return new ImageTransmission(data).imageData;
         }
+        
+        /**
+         * Request in file input control pipe
+         * +------------+--------------------------------------------------------------------------------------------+
+         * | requestTag |                                     requestData                                            |
+         * +------------+----------+-------------+------------+---------------+-----------------+--------------------+
+         * |            |  imageId |  currentPos |  BlockSize |  maxChunkSize |  transferMethod |  l2capChannelOrPsm |
+         * |            |          |             |            |               |                 |                    |
+         * | 1 byte     |  2 bytes |  4 bytes    |  4 bytes   |  2bytes       |  1 byte         |  2 bytes           |
+         * +------------+----------+-------------+------------+---------------+-----------------+--------------------+
+         *
+         * [maxChunkSize] not larger than (0xFFFF + 1)
+         *
+         * Response in file input data pipe
+         * +--------------------------------+
+         * |             block              |
+         * +----------+----------+----------+
+         * | chunk    |   ...    |  chunk   |
+         * +----------+----------+----------+
+         */
+        private async Task<IObservable<(int, byte[])>> RequestForNextBlock(int currentPos, long totalSize)
+        {
+            var maxChunkSize = _notepadType.mtu - 3 /*GATT_HEADER_LENGTH*/ - 1 /*responseTag*/ - 1;
+            var maxBlockSize = maxChunkSize * (0xFF + 1); // chunkSeqId(1 byte) -> maxChunkPerBlock
+            var blockSize = Math.Min(totalSize - currentPos, maxBlockSize);
+            var transferMethod = (byte) 0x00;
+            var l2capChannelOrPsm = (short) 0x0004;
+            
+            Debug.WriteLine($"requestForNextBlock currentPos {currentPos}, totalSize {totalSize}, blockSize {blockSize}, maxChunkSize {maxChunkSize}");
 
-        private IObservable<(int, byte[])> RequestForNextBlock(int currentPos, long totalSize)
+            byte[] request;
+            using (var stream = new MemoryStream())
+            {
+                using (var writer = new BinaryWriter(stream))
+                {
+                    writer.Write((byte) 0x04);
+                    writer.Write(FileInfo.Item1);
+                    writer.Write(currentPos);
+                    writer.Write((int) blockSize);
+                    writer.Write((short) maxChunkSize);
+                    writer.Write(transferMethod);
+                    writer.Write(l2capChannelOrPsm);    
+                }
+                request = stream.ToArray();
+            }
+
+            var chunkCountCeil = (int) Math.Ceiling(blockSize * 1.0 / maxChunkSize);
+            var indexedChunkObservable = ReceiveChunks(chunkCountCeil);
+
+            _notepadType.SendRequestAsync("FileInputControl", FileInputControlRequestCharacteristic, request);
+
+            return indexedChunkObservable;
+        }
+
+        private IObservable<(int, byte[])> ReceiveChunks(int count)
         {
             throw new NotImplementedException();
         }
