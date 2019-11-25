@@ -199,7 +199,7 @@ namespace NotepadKit
             var info = await GetLargeDataInfo();
             if (info.sizeInByte <= ImageTransmission.EMPTY_LENGTH) throw new Exception("No memo");
 
-            var imageData = await RequestTransportation(info.sizeInByte, progress);
+            var imageData = await RequestTransmission(info.sizeInByte, progress);
             return new MemoData {memoInfo = info, pointers = parseMemo(imageData, info.createdAt)};
         }
 
@@ -208,7 +208,38 @@ namespace NotepadKit
             throw new NotImplementedException();
         }
 
-        private async Task<byte[]> RequestTransportation(long totalSize, Action<int> progress)
+        /**
+         * +--------------------------------+
+         * |       [ImageTransmission]      |
+         * +----------+----------+----------+
+         * |  block   |    ...   |   block  |
+         * +----------+----------+----------+
+         */
+        private async Task<byte[]> RequestTransmission(long totalSize, Action<int> progress)
+        {
+            var data = new byte[]{};
+            while (data.Length < totalSize)
+            {
+                var currentPos = data.Length;
+                var blockProgress = 0;
+                var blockChunkDictionary = await RequestForNextBlock(currentPos, totalSize)
+                    .Aggregate(new Dictionary<int, byte[]>(), (acc, value) =>
+                    {
+                        blockProgress += value.Item2.Length;
+                        progress((int) ((currentPos + blockProgress) * 100 / totalSize));
+                        acc[value.Item1] = value.Item2;
+                        return acc;
+                    });
+                var block = blockChunkDictionary.ToImmutableSortedDictionary().Select(pair => pair.Value)
+                    .Aggregate((acc, value) => acc.Concat(value).ToArray());
+                Debug.WriteLine($"receiveBlock size({block.Length})");
+                data = data.Concat(block).ToArray();
+            }
+
+            return new ImageTransmission(data).imageData;
+        }
+
+        private IObservable<(int, byte[])> RequestForNextBlock(int currentPos, long totalSize)
         {
             throw new NotImplementedException();
         }
