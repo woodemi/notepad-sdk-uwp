@@ -60,10 +60,7 @@ namespace NotepadKit
             }).ToArray();
         }
 
-        public override string ToString()
-        {
-            return $"x: {x}, y: {y}, t: {t}, p: {p}";
-        }
+        public override string ToString() => $"x: {x}, y: {y}, t: {t}, p: {p}";
     }
 
     public struct MemoSummary
@@ -73,11 +70,7 @@ namespace NotepadKit
         public long usedCapacity;
         public int memoCount;
 
-        public override string ToString()
-        {
-            return
-                $"memoCount: {memoCount}, totalCapacity: {totalCapacity}, freeCapacity: {freeCapacity}, usedCapacity: {usedCapacity}";
-        }
+        public override string ToString() => $"memoCount: {memoCount}, totalCapacity: {totalCapacity}, freeCapacity: {freeCapacity}, usedCapacity: {usedCapacity}";
     }
 
     public struct MemoInfo
@@ -90,9 +83,6 @@ namespace NotepadKit
         // Rest part count in current transportation
         public long restCount;
 
-        public override string ToString()
-        {
-            return $"sizeInByte: {sizeInByte}, createdAt: {createdAt}, partIndex: {partIndex}, restCount: {restCount}";
-        }
+        public override string ToString() => $"sizeInByte: {sizeInByte}, createdAt: {createdAt}, partIndex: {partIndex}, restCount: {restCount}";
     }
 }
