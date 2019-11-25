@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reactive.Threading.Tasks;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using NotepadKit;
@@ -67,6 +69,12 @@ namespace NotepadKitSample
         private void button4_Click(object sender, RoutedEventArgs e)
         {
             _notepadConnector.Disconnect();
+        }
+
+        private void button5_Click(object sender, RoutedEventArgs e)
+        {
+            _notepadClient.GetMemoSummary().ToObservable()
+                .Subscribe(memoSummary => Debug.WriteLine($"GetMemoSummary {memoSummary}"));
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -92,6 +93,31 @@ namespace NotepadKit
         {
             return NotePenPointer.Create(value)
                 .Where(p => 0 <= p.x && p.x <= A1_WIDTH && 0 <= p.y && p.y <= A1_HEIGHT).ToList();
+        }
+
+        public override async Task<MemoSummary> GetMemoSummary()
+        {
+            MemoSummary Handle(byte[] bytes)
+            {
+                using (var reader = new BinaryReader(new MemoryStream(bytes)))
+                {
+                    reader.ReadBytes(1); // Skip response tag
+                    return new MemoSummary
+                    {
+                        totalCapacity = reader.ReadUInt32(),
+                        freeCapacity = reader.ReadUInt32(),
+                        usedCapacity = reader.ReadUInt32(),
+                        memoCount = reader.ReadUInt16()
+                    };
+                }
+            }
+
+            return await _notepadType.ExecuteCommand(new WoodemiCommand<MemoSummary>
+            {
+                request = new byte[] {0x08, 0x02},
+                intercept = bytes => bytes.First() == 0x0D,
+                handle = Handle
+            });
         }
     }
 }
