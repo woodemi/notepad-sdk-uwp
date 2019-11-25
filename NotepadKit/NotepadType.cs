@@ -84,5 +84,13 @@ namespace NotepadKit
                     return value;
                 });
         }
+
+        public async Task<Response> ExecuteFileInputControl<Response>(WoodemiCommand<Response> command)
+        {
+            var receiveResponse = ReceiveResponseAsync("FileInputControl", _notepadClient.FileInputControlResponseCharacteristic,
+                command.intercept);
+            await SendRequestAsync("FileInputControl", _notepadClient.FileInputControlRequestCharacteristic, command.request);
+            return command.handle(await receiveResponse);
+        }
     }
 }

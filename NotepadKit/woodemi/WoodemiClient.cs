@@ -17,6 +17,10 @@ namespace NotepadKit
         private static readonly string SERV__SYNC = $"57444D06-{SUFFIX}";
         private static readonly string CHAR__SYNC_INPUT = $"57444D07-{SUFFIX}";
 
+        private static readonly string SERV__FILE_INPUT = $"57444D03-{SUFFIX}";
+        private static readonly string CHAR__FILE_INPUT_CONTROL_REQUEST = $"57444D04-{SUFFIX}";
+        private static readonly string CHAR__FILE_INPUT_CONTROL_RESPONSE = CHAR__FILE_INPUT_CONTROL_REQUEST;
+
         private static readonly byte[] DEFAULT_AUTH_TOKEN = {0x00, 0x00, 0x00, 0x01};
 
         private static readonly int A1_WIDTH = 14800;
@@ -27,10 +31,15 @@ namespace NotepadKit
         public override (string, string) CommandResponseCharacteristic => (SERV__COMMAND, CHAR__COMMAND_RESPONSE);
 
         public override (string, string) SyncInputCharacteristic => (SERV__SYNC, CHAR__SYNC_INPUT);
+        
+        public override (string, string) FileInputControlRequestCharacteristic => (SERV__FILE_INPUT, CHAR__FILE_INPUT_CONTROL_REQUEST);
+
+        public override (string, string) FileInputControlResponseCharacteristic => (SERV__FILE_INPUT, CHAR__FILE_INPUT_CONTROL_RESPONSE);
 
         public override IReadOnlyList<(string, string)> InputIndicationCharacteristics => new List<(string, string)>
         {
-            CommandResponseCharacteristic
+            CommandResponseCharacteristic,
+            FileInputControlResponseCharacteristic
         };
 
         public override IReadOnlyList<(string, string)> InputNotificationCharacteristics => new List<(string, string)>
@@ -119,5 +128,62 @@ namespace NotepadKit
                 handle = Handle
             });
         }
+
+        public override async Task<MemoInfo> GetMemoInfo()
+        {
+            var largeDataInfo = await GetLargeDataInfo();
+            return new MemoInfo
+            {
+                sizeInByte = largeDataInfo.sizeInByte - ImageTransportation.EMPTY_LENGTH,
+                createdAt = largeDataInfo.createdAt,
+                partIndex = largeDataInfo.partIndex,
+                restCount = largeDataInfo.restCount
+            };
+        }
+
+        private async Task<MemoInfo> GetLargeDataInfo()
+        {
+            MemoInfo Handle(byte[] bytes)
+            {
+                using (var reader = new BinaryReader(new MemoryStream(bytes)))
+                {
+                    reader.ReadBytes(1); // Skip response tag
+                    int partIndex = reader.ReadByte();
+                    int restCount = reader.ReadByte();
+                    var chars = reader.ReadBytes(FileInfo.Item2.Length).Select(b => (char) b).ToArray();
+                    var createdAt = Convert.ToInt32(new string(chars));
+                    var sizeInByte = reader.ReadUInt32();
+                    return new MemoInfo
+                    {
+                        sizeInByte = sizeInByte,
+                        createdAt = createdAt,
+                        partIndex = partIndex,
+                        restCount = restCount
+                    };
+                }
+            }
+
+
+            var request = new byte[] {0x02}.Concat(FileInfo.Item1).Concat(FileInfo.Item2).ToArray();
+            return await _notepadType.ExecuteFileInputControl(new WoodemiCommand<MemoInfo>
+            {
+                request = request,
+                intercept = bytes => bytes.First() == 0x03,
+                handle = Handle
+            });
+        }
+
+        private (byte[], byte[]) FileInfo = (
+            // imageId
+            new byte[] {0x00, 0x01},
+            // imageVersion
+            new byte[]
+            {
+                0x01, 0x00, 0x00, // Build Version
+                0x41, // Stack Version
+                0x11, 0x11, 0x11, // Hardware Id
+                0x01 // Manufacturer Id
+            }
+        );
     }
 }
