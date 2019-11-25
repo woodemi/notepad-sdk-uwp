@@ -18,6 +18,8 @@ namespace NotepadKit
 
         public abstract (string, string) FileInputControlResponseCharacteristic { get; }
 
+        public abstract (string, string) FileInputCharacteristic { get; }
+
         public abstract IReadOnlyList<(string, string)> InputIndicationCharacteristics { get; }
 
         public abstract IReadOnlyList<(string, string)> InputNotificationCharacteristics { get; }
