@@ -76,5 +76,11 @@ namespace NotepadKitSample
             _notepadClient.GetMemoSummary().ToObservable()
                 .Subscribe(memoSummary => Debug.WriteLine($"GetMemoSummary {memoSummary}"));
         }
+
+        private void button6_Click(object sender, RoutedEventArgs e)
+        {
+            _notepadClient.GetMemoInfo().ToObservable()
+                .Subscribe(memoInfo => Debug.WriteLine($"GetMemoInfo {memoInfo}"));
+        }
     }
 }

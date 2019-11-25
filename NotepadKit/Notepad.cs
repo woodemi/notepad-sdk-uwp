@@ -79,4 +79,20 @@ namespace NotepadKit
                 $"memoCount: {memoCount}, totalCapacity: {totalCapacity}, freeCapacity: {freeCapacity}, usedCapacity: {usedCapacity}";
         }
     }
+
+    public struct MemoInfo
+    {
+        public long sizeInByte;
+        public long createdAt;
+
+        public long partIndex;
+
+        // Rest part count in current transportation
+        public long restCount;
+
+        public override string ToString()
+        {
+            return $"sizeInByte: {sizeInByte}, createdAt: {createdAt}, partIndex: {partIndex}, restCount: {restCount}";
+        }
+    }
 }
