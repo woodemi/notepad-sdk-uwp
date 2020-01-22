@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using Windows.Devices.Bluetooth;
+using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Foundation;
 
 namespace NotepadKit
@@ -16,14 +18,31 @@ namespace NotepadKit
         public async void Connect(NotepadScanResult scanResult)
         {
             Debug.WriteLine("NotepadConnector::Connect");
-            _bluetoothDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(scanResult.BluetoothAddress);
-            _bluetoothDevice.ConnectionStatusChanged += OnConnectionStatusChanged;
-            _bluetoothDevice.GetGattServicesAsync();
+            Connect_(scanResult);
+            ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connecting);
+        }
 
+        private async Task Connect_(NotepadScanResult scanResult)
+        {
+            var bluetoothDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(scanResult.BluetoothAddress);
+            var gattDeviceServicesResult = await bluetoothDevice.GetGattServicesAsync();
+            Debug.WriteLine($"Connect_ GetGattServicesAsync {gattDeviceServicesResult.Status}");
+            if (gattDeviceServicesResult.Status != GattCommunicationStatus.Success)
+            {
+                ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Disconnected);
+                return;
+            }
+
+            _bluetoothDevice = bluetoothDevice;
+            _bluetoothDevice.ConnectionStatusChanged += OnConnectionStatusChanged;
             _notepadClient = NotepadHelper.Create(scanResult);
             _notepadType = new NotepadType(_notepadClient, new BleType(_bluetoothDevice));
 
-            ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connecting);
+            await _notepadType.ConfigCharacteristics();
+            await _notepadClient.CompleteConnection(awaitConfirm =>
+                ConnectionChanged?.Invoke(_notepadClient, ConnectionState.AwaitConfirm));
+
+            ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connected);
         }
 
         public void Disconnect()
@@ -39,17 +58,8 @@ namespace NotepadKit
         {
             Debug.WriteLine(
                 $"OnConnectionStatusChanged {device.BluetoothAddress}, {device.ConnectionStatus.ToString()}");
-            if (device.ConnectionStatus == BluetoothConnectionStatus.Connected)
-            {
-                await _notepadType.ConfigCharacteristics();
-                await _notepadClient.CompleteConnection(awaitConfirm =>
-                    ConnectionChanged?.Invoke(_notepadClient, ConnectionState.AwaitConfirm));
-                ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connected);
-            }
-            else
-            {
+            if (device.ConnectionStatus == BluetoothConnectionStatus.Disconnected)
                 ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Disconnected);
-            }
         }
     }
 }

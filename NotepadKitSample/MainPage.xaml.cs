@@ -37,7 +37,7 @@ namespace NotepadKitSample
                 _notepadClient.SyncPointerReceived += OnSyncPointerReceived;
                 _notepadClient.SetMode(NotepadMode.Sync);
             }
-            else
+            else if (args == ConnectionState.Disconnected)
             {
                 if (_notepadClient != null)
                     _notepadClient.SyncPointerReceived -= OnSyncPointerReceived;
