@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Threading.Tasks;
+using System.Timers;
+using Windows.UI.Input.Preview.Injection;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using NotepadKit;
@@ -16,6 +18,7 @@ namespace NotepadKitSample
     /// </summary>
     public sealed partial class MainPage : Page
     {
+        private readonly InjectPenHelper _injectPenHelper = new InjectPenHelper(1.0);
         private readonly NotepadConnector _notepadConnector = new NotepadConnector();
         private readonly NotepadScanner _notepadScanner = new NotepadScanner();
         private readonly List<NotepadScanResult> _scanResultList = new List<NotepadScanResult>();
@@ -48,7 +51,10 @@ namespace NotepadKitSample
         private void OnSyncPointerReceived(NotepadClient sender, List<NotePenPointer> args)
         {
             foreach (var pointer in args)
+            {
                 Debug.WriteLine($"OnSyncPointerReceived {pointer}");
+                _injectPenHelper.InjectInput(pointer);
+            }
         }
 
         private void button1_Click(object sender, RoutedEventArgs e)
@@ -103,6 +109,103 @@ namespace NotepadKitSample
         {
             await _notepadClient.DeleteMemo();
             Debug.WriteLine("DeleteMemo success");
+        }
+    }
+
+    public class InjectPenHelper : IDisposable
+    {
+        private readonly InputInjector _inputInjector = InputInjector.TryCreate();
+
+        private readonly Timer _inRangeTimer;
+
+        private readonly double _viewScale;
+
+        private NotePenPointer? _lastNotePenPointer;
+
+        private InjectedInputPenInfo _preInputPenInfo;
+
+        public InjectPenHelper(double viewScale)
+        {
+            _viewScale = viewScale;
+            _inRangeTimer = new Timer
+            {
+                Interval = 500,
+                AutoReset = false
+            };
+            _inRangeTimer.Elapsed += OnTimedEvent;
+
+            _inputInjector.InitializePenInjection(InjectedInputVisualizationMode.Default);
+        }
+
+        public void Dispose()
+        {
+            _inputInjector.UninitializePenInjection();
+
+            if (_inRangeTimer != null)
+                _inRangeTimer.Elapsed -= OnTimedEvent;
+            _inRangeTimer?.Dispose();
+        }
+
+        public void InjectInput(NotePenPointer pointer)
+        {
+            _inRangeTimer.Stop();
+
+            var deltaX = _lastNotePenPointer.HasValue ? pointer.x - _lastNotePenPointer.Value.x : 0;
+            var deltaY = _lastNotePenPointer.HasValue ? pointer.y - _lastNotePenPointer.Value.y : 0;
+
+            var penInfo = ToInputPenInfo(deltaX, deltaY, pointer.p);
+            Debug.WriteLine($"ToInputPenInfo {penInfo}");
+            _inputInjector.InjectPenInput(penInfo);
+            _preInputPenInfo = penInfo;
+
+            _lastNotePenPointer = pointer;
+
+            _inRangeTimer.Start();
+        }
+
+        private void OnTimedEvent(object sender, ElapsedEventArgs args)
+        {
+            Debug.WriteLine($"OnTimedEvent {args.SignalTime}");
+            _lastNotePenPointer = null;
+            _preInputPenInfo = null;
+        }
+
+        private InjectedInputPenInfo ToInputPenInfo(int deltaX, int deltaY, int p)
+        {
+            var preX = _preInputPenInfo?.PointerInfo.PixelLocation.PositionX ?? 0;
+            var preY = _preInputPenInfo?.PointerInfo.PixelLocation.PositionY ?? 0;
+            var pointerInfo = new InjectedInputPointerInfo
+            {
+                PixelLocation = new InjectedInputPoint
+                {
+                    PositionX = (int) (preX + deltaX * _viewScale),
+                    PositionY = (int) (preY + deltaY * _viewScale)
+                }
+            };
+            var penInfo = new InjectedInputPenInfo
+            {
+                PenParameters = InjectedInputPenParameters.Pressure,
+                PointerInfo = pointerInfo,
+                Pressure = p / 512.0
+            };
+
+            if (_preInputPenInfo == null)
+                pointerInfo.PointerOptions = InjectedInputPointerOptions.New;
+            else if (_preInputPenInfo.Pressure <= 0 && p <= 0)
+                pointerInfo.PointerOptions |= InjectedInputPointerOptions.Update | InjectedInputPointerOptions.InRange;
+            else if (_preInputPenInfo.Pressure <= 0 && p > 0)
+                pointerInfo.PointerOptions |= InjectedInputPointerOptions.PointerDown |
+                                              InjectedInputPointerOptions.InRange |
+                                              InjectedInputPointerOptions.InContact;
+            else if (_preInputPenInfo.Pressure > 0 && p > 0)
+                pointerInfo.PointerOptions |= InjectedInputPointerOptions.Update | InjectedInputPointerOptions.InRange |
+                                              InjectedInputPointerOptions.InContact;
+            else if (_preInputPenInfo.Pressure > 0 && p <= 0)
+                pointerInfo.PointerOptions |=
+                    InjectedInputPointerOptions.PointerUp | InjectedInputPointerOptions.InRange;
+
+            penInfo.PointerInfo = pointerInfo;
+            return penInfo;
         }
     }
 }
