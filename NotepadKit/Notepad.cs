@@ -1,32 +1,7 @@
-using System;
-using System.Linq;
-using Windows.Devices.Bluetooth.Advertisement;
+﻿using System;
 
 namespace NotepadKit
 {
-    public class NotepadScanResult
-    {
-        public readonly ulong BluetoothAddress;
-        public readonly byte[] ManufacturerData;
-
-        public NotepadScanResult(BluetoothLEAdvertisementReceivedEventArgs eventArgs)
-        {
-            BluetoothAddress = eventArgs.BluetoothAddress;
-            ManufacturerData = eventArgs.Advertisement.ManufacturerByteArray();
-        }
-    }
-
-    internal static class AdvertisementExtension
-    {
-        internal static byte[] ManufacturerByteArray(this BluetoothLEAdvertisement advertisement)
-        {
-            if (advertisement.ManufacturerData.Count == 0) return null;
-            var manufacturerData = advertisement.ManufacturerData[0];
-            return BitConverter.GetBytes(manufacturerData.CompanyId).Concat(manufacturerData.Data.ToByteArray())
-                .ToArray();
-        }
-    }
-
     public enum ConnectionState
     {
         Disconnected,
@@ -35,54 +10,21 @@ namespace NotepadKit
         Connected
     }
 
-    public enum NotepadMode
+    internal enum AccessResult
     {
-        Sync,
-        Common
+        Denied, // Device claimed by other user
+        Confirmed, // Access confirmed, indicating device not claimed by anyone
+        Unconfirmed, // Access unconfirmed, as user doesn't confirm before timeout
+        Approved // Device claimed by this user
     }
 
-    public struct NotePenPointer
+    internal class AccessException : Exception
     {
-        public int x;
-        public int y;
-        public long t;
-        public int p;
+        public static readonly AccessException Denied = new AccessException();
+        public static readonly AccessException Unconfirmed = new AccessException();
 
-        public static NotePenPointer[] Create(byte[] bytes)
+        private AccessException()
         {
-            // TODO BitConverter.IsLittleEndian
-            return Enumerable.Range(0, bytes.Length / 6).Select(i => new NotePenPointer
-            {
-                x = BitConverter.ToInt16(bytes, i * 6),
-                y = BitConverter.ToInt16(bytes, i * 6 + 2),
-                t = -1,
-                p = BitConverter.ToInt16(bytes, i * 6 + 4)
-            }).ToArray();
         }
-
-        public override string ToString() => $"x: {x}, y: {y}, t: {t}, p: {p}";
-    }
-
-    public struct MemoSummary
-    {
-        public long totalCapacity;
-        public long freeCapacity;
-        public long usedCapacity;
-        public int memoCount;
-
-        public override string ToString() => $"memoCount: {memoCount}, totalCapacity: {totalCapacity}, freeCapacity: {freeCapacity}, usedCapacity: {usedCapacity}";
-    }
-
-    public struct MemoInfo
-    {
-        public long sizeInByte;
-        public long createdAt;
-
-        public long partIndex;
-
-        // Rest part count in current transportation
-        public long restCount;
-
-        public override string ToString() => $"sizeInByte: {sizeInByte}, createdAt: {createdAt}, partIndex: {partIndex}, restCount: {restCount}";
     }
 }

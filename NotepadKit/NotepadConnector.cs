@@ -36,10 +36,17 @@ namespace NotepadKit
         {
             if (args == BluetoothConnectionStatus.Connected)
             {
-                await _notepadType.ConfigCharacteristics();
-                await _notepadClient.CompleteConnection(awaitConfirm =>
-                    ConnectionChanged?.Invoke(_notepadClient, ConnectionState.AwaitConfirm));
-                ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connected);
+                try
+                {
+                    await _notepadType.ConfigCharacteristics();
+                    await _notepadClient.CompleteConnection(awaitConfirm =>
+                        ConnectionChanged?.Invoke(_notepadClient, ConnectionState.AwaitConfirm));
+                    ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connected);
+                }
+                catch (AccessException)
+                {
+                    Clean();
+                }
             }
             else
             {

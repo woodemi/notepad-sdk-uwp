@@ -31,10 +31,12 @@ namespace NotepadKit
         public override (string, string) CommandResponseCharacteristic => (SERV__COMMAND, CHAR__COMMAND_RESPONSE);
 
         public override (string, string) SyncInputCharacteristic => (SERV__SYNC, CHAR__SYNC_INPUT);
-        
-        public override (string, string) FileInputControlRequestCharacteristic => (SERV__FILE_INPUT, CHAR__FILE_INPUT_CONTROL_REQUEST);
 
-        public override (string, string) FileInputControlResponseCharacteristic => (SERV__FILE_INPUT, CHAR__FILE_INPUT_CONTROL_RESPONSE);
+        public override (string, string) FileInputControlRequestCharacteristic =>
+            (SERV__FILE_INPUT, CHAR__FILE_INPUT_CONTROL_REQUEST);
+
+        public override (string, string) FileInputControlResponseCharacteristic =>
+            (SERV__FILE_INPUT, CHAR__FILE_INPUT_CONTROL_RESPONSE);
 
         public override IReadOnlyList<(string, string)> InputIndicationCharacteristics => new List<(string, string)>
         {
@@ -49,16 +51,16 @@ namespace NotepadKit
 
         internal override async Task CompleteConnection(Action<bool> awaitConfirm)
         {
-            await base.CompleteConnection(awaitConfirm);
-            await CheckAccess(DEFAULT_AUTH_TOKEN, 10, awaitConfirm);
-        }
+            var accessResult = await CheckAccess(DEFAULT_AUTH_TOKEN, 10, awaitConfirm);
+            switch (accessResult)
+            {
+                case AccessResult.Denied:
+                    throw AccessException.Denied;
+                case AccessResult.Unconfirmed:
+                    throw AccessException.Unconfirmed;
+            }
 
-        private enum AccessResult
-        {
-            Denied, // Device claimed by other user
-            Confirmed, // Access confirmed, indicating device not claimed by anyone
-            Unconfirmed, // Access unconfirmed, as user doesn't confirm before timeout
-            Approved // Device claimed by this user
+            await base.CompleteConnection(awaitConfirm);
         }
 
         private async Task<AccessResult> CheckAccess(byte[] authToken, int seconds, Action<bool> awaitConfirm)
@@ -173,7 +175,7 @@ namespace NotepadKit
             });
         }
 
-        private (byte[], byte[]) FileInfo = (
+        private readonly (byte[], byte[]) FileInfo = (
             // imageId
             new byte[] {0x00, 0x01},
             // imageVersion
