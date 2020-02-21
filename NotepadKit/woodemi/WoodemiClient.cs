@@ -153,7 +153,7 @@ namespace NotepadKit
                     int partIndex = reader.ReadByte();
                     int restCount = reader.ReadByte();
                     var chars = reader.ReadBytes(FileInfo.Item2.Length).Select(b => (char) b).ToArray();
-                    var createdAt = Convert.ToInt32(new string(chars));
+                    var createdAt = Convert.ToInt32(new string(chars), 16);
                     var sizeInByte = reader.ReadUInt32();
                     return new MemoInfo
                     {
