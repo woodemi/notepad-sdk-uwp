@@ -1,65 +1,57 @@
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using Windows.Devices.Bluetooth;
-using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Foundation;
 
 namespace NotepadKit
 {
     public class NotepadConnector
     {
-        private BluetoothLEDevice _bluetoothDevice;
         private NotepadClient _notepadClient;
         private NotepadType _notepadType;
 
-        public event TypedEventHandler<NotepadClient, ConnectionState> ConnectionChanged;
-
-        public async void Connect(NotepadScanResult scanResult)
+        public NotepadConnector()
         {
-            Debug.WriteLine("NotepadConnector::Connect");
-            Connect_(scanResult);
-            ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connecting);
+            NotepadCorePlatform.Instance.ConnectionStatusChanged += NotepadCorePlatform_ConnectionStatusChanged;
         }
 
-        private async Task Connect_(NotepadScanResult scanResult)
+        public event TypedEventHandler<NotepadClient, ConnectionState> ConnectionChanged;
+
+        public void Connect(NotepadScanResult scanResult)
         {
-            var bluetoothDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(scanResult.BluetoothAddress);
-            var gattDeviceServicesResult = await bluetoothDevice.GetGattServicesAsync();
-            Debug.WriteLine($"Connect_ GetGattServicesAsync {gattDeviceServicesResult.Status}");
-            if (gattDeviceServicesResult.Status != GattCommunicationStatus.Success)
-            {
-                ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Disconnected);
-                return;
-            }
-
-            _bluetoothDevice = bluetoothDevice;
-            _bluetoothDevice.ConnectionStatusChanged += OnConnectionStatusChanged;
+            Debug.WriteLine("NotepadConnector::Connect");
             _notepadClient = NotepadHelper.Create(scanResult);
-            _notepadType = new NotepadType(_notepadClient, new BleType(_bluetoothDevice));
-
-            await _notepadType.ConfigCharacteristics();
-            await _notepadClient.CompleteConnection(awaitConfirm =>
-                ConnectionChanged?.Invoke(_notepadClient, ConnectionState.AwaitConfirm));
-
-            ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connected);
+            _notepadType = new NotepadType(_notepadClient);
+            NotepadCorePlatform.Instance.ConnectAsync(scanResult);
+            ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connecting);
         }
 
         public void Disconnect()
         {
             Debug.WriteLine("NotepadConnector::Disconnect");
-            if (_bluetoothDevice != null)
-                _bluetoothDevice.ConnectionStatusChanged -= OnConnectionStatusChanged;
-            _bluetoothDevice?.Dispose();
-            _bluetoothDevice = null;
+            Clean();
+            NotepadCorePlatform.Instance.Disconnect();
         }
 
-        private async void OnConnectionStatusChanged(BluetoothLEDevice device, object args)
+        private async void NotepadCorePlatform_ConnectionStatusChanged(object sender, BluetoothConnectionStatus args)
         {
-            Debug.WriteLine(
-                $"OnConnectionStatusChanged {device.BluetoothAddress}, {device.ConnectionStatus.ToString()}");
-            if (device.ConnectionStatus == BluetoothConnectionStatus.Disconnected)
+            if (args == BluetoothConnectionStatus.Connected)
+            {
+                await _notepadType.ConfigCharacteristics();
+                await _notepadClient.CompleteConnection(awaitConfirm =>
+                    ConnectionChanged?.Invoke(_notepadClient, ConnectionState.AwaitConfirm));
+                ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Connected);
+            }
+            else
+            {
+                Clean();
                 ConnectionChanged?.Invoke(_notepadClient, ConnectionState.Disconnected);
+            }
+        }
+
+        private void Clean()
+        {
+            _notepadClient = null;
+            _notepadType = null;
         }
     }
 }

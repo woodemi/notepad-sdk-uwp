@@ -15,12 +15,10 @@ namespace NotepadKit
 
     internal class NotepadType
     {
-        private readonly BleType _bleType;
         private readonly NotepadClient _notepadClient;
 
-        public NotepadType(NotepadClient notepadClient, BleType bleType)
+        public NotepadType(NotepadClient notepadClient)
         {
-            _bleType = bleType;
             _notepadClient = notepadClient;
             _notepadClient._notepadType = this;
         }
@@ -36,12 +34,12 @@ namespace NotepadKit
         private async Task ConfigInputCharacteristic((string, string) serviceCharacteristic,
             BleInputProperty inputProperty)
         {
-            await _bleType.SetNotifiable(serviceCharacteristic, inputProperty);
+            await NotepadCorePlatform.Instance.SetNotifiable(serviceCharacteristic, inputProperty);
         }
 
         private async Task SendValue((string, string) serviceCharacteristic, byte[] request)
         {
-            await _bleType.WriteValue(serviceCharacteristic, request);
+            await NotepadCorePlatform.Instance.WriteValue(serviceCharacteristic, request);
         }
 
         private async Task SendRequestAsync(string messageHead, (string, string) serviceCharacteristic, byte[] request)
@@ -54,8 +52,8 @@ namespace NotepadKit
         {
             var observable = Observable.FromEvent<TypedEventHandler<string, byte[]>, (string, byte[])>(
                 rxHandler => (sender, args) => rxHandler((sender, args)),
-                handler => _bleType.InputReceived += handler,
-                handler => _bleType.InputReceived -= handler);
+                handler => NotepadCorePlatform.Instance.InputReceived += handler,
+                handler => NotepadCorePlatform.Instance.InputReceived -= handler);
             return observable.Where(e => e.Item1 == serviceCharacteristic.Item2).Select(e => e.Item2);
         }
 
@@ -87,9 +85,11 @@ namespace NotepadKit
 
         public async Task<Response> ExecuteFileInputControl<Response>(WoodemiCommand<Response> command)
         {
-            var receiveResponse = ReceiveResponseAsync("FileInputControl", _notepadClient.FileInputControlResponseCharacteristic,
+            var receiveResponse = ReceiveResponseAsync("FileInputControl",
+                _notepadClient.FileInputControlResponseCharacteristic,
                 command.intercept);
-            await SendRequestAsync("FileInputControl", _notepadClient.FileInputControlRequestCharacteristic, command.request);
+            await SendRequestAsync("FileInputControl", _notepadClient.FileInputControlRequestCharacteristic,
+                command.request);
             return command.handle(await receiveResponse);
         }
     }
