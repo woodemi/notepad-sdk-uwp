@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,6 +13,9 @@ namespace NotepadKit
     {
         private static readonly Lazy<NotepadCorePlatform> _lazy =
             new Lazy<NotepadCorePlatform>(() => new NotepadCorePlatform());
+
+        private readonly Dictionary<string, GattCharacteristic> _gattCharacteristics =
+            new Dictionary<string, GattCharacteristic>();
 
         private BluetoothLEDevice _bluetoothLEDevice;
 
@@ -62,22 +66,31 @@ namespace NotepadKit
             }
         }
 
+        private async Task<GattCharacteristic> GetCharacteristic((string, string) serviceCharacteristic)
+        {
+            var (serviceId, characteristicId) = serviceCharacteristic;
+            if (!_gattCharacteristics.ContainsKey(characteristicId))
+            {
+                var servicesResult = await _bluetoothLEDevice.GetGattServicesAsync();
+                var service = servicesResult.Services.First(s => s.Uuid.ToString().ToUpper() == serviceId);
+                var characteristicsResult = await service.GetCharacteristicsAsync();
+                _gattCharacteristics[characteristicId] =
+                    characteristicsResult.Characteristics.First(c => c.Uuid.ToString().ToUpper() == characteristicId);
+            }
+
+            return _gattCharacteristics[characteristicId];
+        }
+
         private void Clean()
         {
-            // TODO gattCharacteristics -= GattCharacteristic_ValueChanged
+            foreach (var characteristicPair in _gattCharacteristics)
+                characteristicPair.Value.ValueChanged -= GattCharacteristic_ValueChanged;
+            _gattCharacteristics.Clear();
+
             if (_bluetoothLEDevice != null)
                 _bluetoothLEDevice.ConnectionStatusChanged -= BluetoothLEDevice_ConnectionStatusChanged;
             _bluetoothLEDevice?.Dispose();
             _bluetoothLEDevice = null;
-        }
-
-        private async Task<GattCharacteristic> GetCharacteristic((string, string) serviceCharacteristic)
-        {
-            var (serviceId, characteristicId) = serviceCharacteristic;
-            var servicesResult = await _bluetoothLEDevice.GetGattServicesAsync();
-            var service = servicesResult.Services.First(s => s.Uuid.ToString().ToUpper() == serviceId);
-            var characteristicsResult = await service.GetCharacteristicsAsync();
-            return characteristicsResult.Characteristics.First(c => c.Uuid.ToString().ToUpper() == characteristicId);
         }
 
         public async Task SetNotifiable((string, string) serviceCharacteristic, BleInputProperty inputProperty)
