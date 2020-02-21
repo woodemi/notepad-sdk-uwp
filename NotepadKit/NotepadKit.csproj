@@ -121,11 +121,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Common.cs" />
+    <Compile Include="Notepad.cs"/>
     <Compile Include="NotepadClient.cs" />
     <Compile Include="NotepadConnector.cs" />
     <Compile Include="NotepadCorePlatform.cs"/>
     <Compile Include="NotepadScanner.cs" />
-    <Compile Include="Notepad.cs" />
+    <Compile Include="models.cs"/>
     <Compile Include="NotepadType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="woodemi\ImageTransmission.cs" />
