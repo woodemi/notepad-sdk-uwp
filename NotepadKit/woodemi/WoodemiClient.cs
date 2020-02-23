@@ -166,7 +166,7 @@ namespace NotepadKit
             }
 
 
-            var request = new byte[] {0x02}.Concat(FileInfo.Item1).Concat(FileInfo.Item2).ToArray();
+            var request = new byte[] {0x02}.Concat(FileInfo.imageId).Concat(FileInfo.imageVersion).ToArray();
             return await _notepadType.ExecuteFileInputControl(new WoodemiCommand<MemoInfo>
             {
                 request = request,
@@ -175,10 +175,8 @@ namespace NotepadKit
             });
         }
 
-        private readonly (byte[], byte[]) FileInfo = (
-            // imageId
+        private readonly (byte[] imageId, byte[] imageVersion) FileInfo = (
             new byte[] {0x00, 0x01},
-            // imageVersion
             new byte[]
             {
                 0x01, 0x00, 0x00, // Build Version
