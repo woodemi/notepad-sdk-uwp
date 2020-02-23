@@ -14,18 +14,15 @@ namespace NotepadKit
         private static readonly Lazy<NotepadCorePlatform> _lazy =
             new Lazy<NotepadCorePlatform>(() => new NotepadCorePlatform());
 
-        private readonly Dictionary<string, GattCharacteristic> _gattCharacteristics =
-            new Dictionary<string, GattCharacteristic>();
-
-        private BluetoothLEDevice _bluetoothLEDevice;
-
-        public TypedEventHandler<object, BluetoothConnectionStatus> ConnectionStatusChanged;
+        public static NotepadCorePlatform Instance => _lazy.Value;
 
         private NotepadCorePlatform()
         {
         }
 
-        public static NotepadCorePlatform Instance => _lazy.Value;
+        private BluetoothLEDevice _bluetoothLEDevice;
+
+        public TypedEventHandler<object, BluetoothConnectionStatus> ConnectionStatusChanged;
 
         public async void ConnectAsync(NotepadScanResult scanResult)
         {
@@ -66,19 +63,35 @@ namespace NotepadKit
             }
         }
 
-        private async Task<GattCharacteristic> GetCharacteristic((string, string) serviceCharacteristic)
+        private readonly Dictionary<string, GattDeviceService> _gattServices =
+            new Dictionary<string, GattDeviceService>();
+
+        private async Task<GattDeviceService> GetService(string service)
         {
-            var (serviceId, characteristicId) = serviceCharacteristic;
-            if (!_gattCharacteristics.ContainsKey(characteristicId))
+            if (!_gattServices.ContainsKey(service))
             {
                 var servicesResult = await _bluetoothLEDevice.GetGattServicesAsync();
-                var service = servicesResult.Services.First(s => s.Uuid.ToString().ToUpper() == serviceId);
-                var characteristicsResult = await service.GetCharacteristicsAsync();
-                _gattCharacteristics[characteristicId] =
-                    characteristicsResult.Characteristics.First(c => c.Uuid.ToString().ToUpper() == characteristicId);
+                _gattServices[service] = servicesResult.Services.First(s => s.Uuid.ToString().ToUpper() == service);
             }
 
-            return _gattCharacteristics[characteristicId];
+            return _gattServices[service];
+        }
+
+        private readonly Dictionary<string, GattCharacteristic> _gattCharacteristics =
+            new Dictionary<string, GattCharacteristic>();
+
+        private async Task<GattCharacteristic> GetCharacteristic((string, string) serviceCharacteristic)
+        {
+            var (service, characteristic) = serviceCharacteristic;
+            if (!_gattCharacteristics.ContainsKey(characteristic))
+            {
+                var gattService = await GetService(service);
+                var characteristicsResult = await gattService.GetCharacteristicsAsync();
+                _gattCharacteristics[characteristic] =
+                    characteristicsResult.Characteristics.First(c => c.Uuid.ToString().ToUpper() == characteristic);
+            }
+
+            return _gattCharacteristics[characteristic];
         }
 
         private void Clean()
@@ -86,6 +99,10 @@ namespace NotepadKit
             foreach (var characteristicPair in _gattCharacteristics)
                 characteristicPair.Value.ValueChanged -= GattCharacteristic_ValueChanged;
             _gattCharacteristics.Clear();
+
+            foreach (var servicePair in _gattServices)
+                servicePair.Value.Dispose();
+            _gattServices.Clear();
 
             if (_bluetoothLEDevice != null)
                 _bluetoothLEDevice.ConnectionStatusChanged -= BluetoothLEDevice_ConnectionStatusChanged;
