@@ -48,13 +48,14 @@ namespace NotepadKit
             Debug.WriteLine($"on{messageHead}Send: {request.ToHexString()}");
         }
 
-        private IObservable<byte[]> ReceiveValue((string, string) serviceCharacteristic)
+        private IObservable<byte[]> ReceiveValue((string service, string characteristic) tuple)
         {
-            var observable = Observable.FromEvent<TypedEventHandler<string, byte[]>, (string, byte[])>(
-                rxHandler => (sender, args) => rxHandler((sender, args)),
-                handler => NotepadCorePlatform.Instance.InputReceived += handler,
-                handler => NotepadCorePlatform.Instance.InputReceived -= handler);
-            return observable.Where(e => e.Item1 == serviceCharacteristic.Item2).Select(e => e.Item2);
+            var observable =
+                Observable.FromEvent<TypedEventHandler<string, byte[]>, (string characteristic, byte[] value)>(
+                    rxHandler => (sender, args) => rxHandler((sender, args)),
+                    handler => NotepadCorePlatform.Instance.InputReceived += handler,
+                    handler => NotepadCorePlatform.Instance.InputReceived -= handler);
+            return observable.Where(e => e.characteristic == tuple.characteristic).Select(e => e.value);
         }
 
         public async Task<byte[]> ReceiveResponseAsync(string messageHead, (string, string) serviceCharacteristic,
