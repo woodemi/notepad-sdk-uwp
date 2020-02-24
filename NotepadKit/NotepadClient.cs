@@ -29,16 +29,26 @@ namespace NotepadKit
             _notepadType.ReceiveSyncInput().Subscribe(value => SyncPointerReceived?.Invoke(this, ParseSyncData(value)));
         }
 
+        #region SyncInput
+
         public event TypedEventHandler<NotepadClient, List<NotePenPointer>> SyncPointerReceived;
 
         public abstract Task SetMode(NotepadMode mode);
 
         protected abstract List<NotePenPointer> ParseSyncData(byte[] value);
 
+        #endregion
+
+        #region ImportMemo
+
         public abstract Task<MemoSummary> GetMemoSummary();
 
         public abstract Task<MemoInfo> GetMemoInfo();
 
         public abstract Task<MemoData> ImportMemo(Action<int> progress);
+
+        public abstract Task DeleteMemo();
+
+        #endregion
     }
 }
