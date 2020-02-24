@@ -30,6 +30,8 @@ namespace NotepadKit
         private static readonly int A1_WIDTH = 14800;
         private static readonly int A1_HEIGHT = 21000;
 
+        private static readonly int SAMPLE_INTERVAL_MS = 5;
+
         public override (string, string) CommandRequestCharacteristic => (SERV__COMMAND, CHAR__COMMAND_REQUEST);
 
         public override (string, string) CommandResponseCharacteristic => (SERV__COMMAND, CHAR__COMMAND_RESPONSE);
@@ -207,12 +209,25 @@ namespace NotepadKit
             if (info.sizeInByte <= ImageTransmission.EMPTY_LENGTH) throw new Exception("No memo");
 
             var imageData = await RequestTransmission(info.sizeInByte, progress);
-            return new MemoData {memoInfo = info, pointers = parseMemo(imageData, info.createdAt)};
+            return new MemoData {memoInfo = info, pointers = ParseMemo(imageData, info.createdAt).ToList()};
         }
 
-        private List<NotePenPointer> parseMemo(byte[] bytes, long createdAt)
+        private IEnumerable<NotePenPointer> ParseMemo(byte[] bytes, long createdAt)
         {
-            throw new NotImplementedException();
+            var byteGroups = bytes.Select((b, index) => (b, index)).GroupBy(g => g.index / 6, e => e.b);
+            var byteParts = byteGroups.Select(g => g.AsEnumerable().ToArray());
+            var start = createdAt;
+            foreach (var byteList in byteParts)
+            {
+                if (byteList[4] == 0xFF && byteList[5] == 0xFF)
+                    start = BitConverter.ToUInt32(byteList, 0);
+                else
+                    yield return new NotePenPointer(
+                        BitConverter.ToUInt16(byteList, 0),
+                        BitConverter.ToUInt16(byteList, 2),
+                        start += SAMPLE_INTERVAL_MS,
+                        BitConverter.ToUInt16(byteList, 2));
+            }
         }
 
         /**
@@ -230,20 +245,21 @@ namespace NotepadKit
                 var currentPos = data.Length;
                 var blockProgress = 0;
                 var blockChunkDictionary = await (await RequestForNextBlock(currentPos, totalSize))
-                    .Aggregate(new Dictionary<int, byte[]>(), (Dictionary<int, byte[]> acc, (int index, byte[] value) chunk) =>
-                    {
-                        blockProgress += chunk.value.Length;
-                        progress((int) ((currentPos + blockProgress) * 100 / totalSize));
-                        acc[chunk.index] = chunk.value;
-                        return acc;
-                    });
+                    .Aggregate(new Dictionary<int, byte[]>(),
+                        (Dictionary<int, byte[]> acc, (int index, byte[] value) chunk) =>
+                        {
+                            blockProgress += chunk.value.Length;
+                            progress((int) ((currentPos + blockProgress) * 100 / totalSize));
+                            acc[chunk.index] = chunk.value;
+                            return acc;
+                        });
                 var block = blockChunkDictionary.ToImmutableSortedDictionary().Select(pair => pair.Value)
                     .Aggregate((acc, value) => acc.Concat(value).ToArray());
                 Debug.WriteLine($"receiveBlock size({block.Length})");
                 data = data.Concat(block).ToArray();
             }
 
-            return new ImageTransmission(data).imageData;
+            return ImageTransmission.forInput(data).ImageData;
         }
 
         /**

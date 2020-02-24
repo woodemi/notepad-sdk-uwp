@@ -41,6 +41,14 @@ namespace NotepadKit
         public long t;
         public int p;
 
+        public NotePenPointer(int x, int y, long t, int p)
+        {
+            this.x = x;
+            this.y = y;
+            this.t = t;
+            this.p = p;
+        }
+
         public static NotePenPointer[] Create(byte[] bytes)
         {
             // TODO BitConverter.IsLittleEndian
