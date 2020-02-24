@@ -37,12 +37,15 @@ namespace NotepadKit
             await NotepadCorePlatform.Instance.SetNotifiable(serviceCharacteristic, inputProperty);
         }
 
+        // FIXME Windows lacks BLE-MTU API
+        public int mtu = 247;
+
         private async Task SendValue((string, string) serviceCharacteristic, byte[] request)
         {
             await NotepadCorePlatform.Instance.WriteValue(serviceCharacteristic, request);
         }
 
-        private async Task SendRequestAsync(string messageHead, (string, string) serviceCharacteristic, byte[] request)
+        public async Task SendRequestAsync(string messageHead, (string, string) serviceCharacteristic, byte[] request)
         {
             await SendValue(serviceCharacteristic, request);
             Debug.WriteLine($"on{messageHead}Send: {request.ToHexString()}");
@@ -74,15 +77,12 @@ namespace NotepadKit
             return command.handle(await receiveResponse);
         }
 
-        public IObservable<byte[]> ReceiveSyncInput()
-        {
-            return ReceiveValue(_notepadClient.SyncInputCharacteristic).Select(
-                value =>
-                {
-                    Debug.WriteLine($"OnSyncInputReceive: {value.ToHexString()}");
-                    return value;
-                });
-        }
+        public IObservable<byte[]> ReceiveSyncInput() =>
+            ReceiveValue(_notepadClient.SyncInputCharacteristic).Select(value =>
+            {
+                Debug.WriteLine($"OnSyncInputReceive: {value.ToHexString()}");
+                return value;
+            });
 
         public async Task<Response> ExecuteFileInputControl<Response>(WoodemiCommand<Response> command)
         {
@@ -93,5 +93,12 @@ namespace NotepadKit
                 command.request);
             return command.handle(await receiveResponse);
         }
+
+        public IObservable<byte[]> ReceiveFileInput() =>
+            ReceiveValue(_notepadClient.FileInputCharacteristic).Select(value =>
+            {
+                Debug.WriteLine($"onFileInputReceive: {value.ToHexString()}");
+                return value;
+            });
     }
 }

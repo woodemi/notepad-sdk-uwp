@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 namespace NotepadKit
@@ -20,11 +23,14 @@ namespace NotepadKit
         private static readonly string SERV__FILE_INPUT = $"57444D03-{SUFFIX}";
         private static readonly string CHAR__FILE_INPUT_CONTROL_REQUEST = $"57444D04-{SUFFIX}";
         private static readonly string CHAR__FILE_INPUT_CONTROL_RESPONSE = CHAR__FILE_INPUT_CONTROL_REQUEST;
+        private static readonly string CHAR__FILE_INPUT = $"57444D05-{SUFFIX}";
 
         private static readonly byte[] DEFAULT_AUTH_TOKEN = {0x00, 0x00, 0x00, 0x01};
 
         private static readonly int A1_WIDTH = 14800;
         private static readonly int A1_HEIGHT = 21000;
+
+        private static readonly int SAMPLE_INTERVAL_MS = 5;
 
         public override (string, string) CommandRequestCharacteristic => (SERV__COMMAND, CHAR__COMMAND_REQUEST);
 
@@ -38,6 +44,8 @@ namespace NotepadKit
         public override (string, string) FileInputControlResponseCharacteristic =>
             (SERV__FILE_INPUT, CHAR__FILE_INPUT_CONTROL_RESPONSE);
 
+        public override (string, string) FileInputCharacteristic => (SERV__FILE_INPUT, CHAR__FILE_INPUT);
+
         public override IReadOnlyList<(string, string)> InputIndicationCharacteristics => new List<(string, string)>
         {
             CommandResponseCharacteristic,
@@ -46,7 +54,8 @@ namespace NotepadKit
 
         public override IReadOnlyList<(string, string)> InputNotificationCharacteristics => new List<(string, string)>
         {
-            SyncInputCharacteristic
+            SyncInputCharacteristic,
+            FileInputCharacteristic
         };
 
         internal override async Task CompleteConnection(Action<bool> awaitConfirm)
@@ -152,7 +161,7 @@ namespace NotepadKit
                     reader.ReadBytes(1); // Skip response tag
                     int partIndex = reader.ReadByte();
                     int restCount = reader.ReadByte();
-                    var chars = reader.ReadBytes(FileInfo.Item2.Length).Select(b => (char) b).ToArray();
+                    var chars = reader.ReadBytes(FileInfo.imageVersion.Length).Select(b => (char) b).ToArray();
                     var createdAt = Convert.ToInt32(new string(chars), 16);
                     var sizeInByte = reader.ReadUInt32();
                     return new MemoInfo
@@ -185,5 +194,142 @@ namespace NotepadKit
                 0x01 // Manufacturer Id
             }
         );
+
+        /**
+         * Memo is kind of LargeData, transferred in data structure [ImageTransmission]
+         * +------------------------------------------------------------+
+         * |                            LargeData                       |
+         * +------------------------+----------+------------------------+
+         * | [ImageTransmission]    |   ...    |  [ImageTransmission]   |
+         * +------------------------+----------+------------------------+
+         */
+        public override async Task<MemoData> ImportMemo(Action<int> progress)
+        {
+            var info = await GetLargeDataInfo();
+            if (info.sizeInByte <= ImageTransmission.EMPTY_LENGTH) throw new Exception("No memo");
+
+            var imageData = await RequestTransmission(info.sizeInByte, progress);
+            return new MemoData {memoInfo = info, pointers = ParseMemo(imageData, info.createdAt).ToList()};
+        }
+
+        private IEnumerable<NotePenPointer> ParseMemo(byte[] bytes, long createdAt)
+        {
+            var byteGroups = bytes.Select((b, index) => (b, index)).GroupBy(g => g.index / 6, e => e.b);
+            var byteParts = byteGroups.Select(g => g.AsEnumerable().ToArray());
+            var start = createdAt;
+            foreach (var byteList in byteParts)
+            {
+                if (byteList[4] == 0xFF && byteList[5] == 0xFF)
+                    start = BitConverter.ToUInt32(byteList, 0);
+                else
+                    yield return new NotePenPointer(
+                        BitConverter.ToUInt16(byteList, 0),
+                        BitConverter.ToUInt16(byteList, 2),
+                        start += SAMPLE_INTERVAL_MS,
+                        BitConverter.ToUInt16(byteList, 2));
+            }
+        }
+
+        /**
+         * +--------------------------------+
+         * |       [ImageTransmission]      |
+         * +----------+----------+----------+
+         * |  block   |    ...   |   block  |
+         * +----------+----------+----------+
+         */
+        private async Task<byte[]> RequestTransmission(long totalSize, Action<int> progress)
+        {
+            var data = new byte[] { };
+            while (data.Length < totalSize)
+            {
+                var currentPos = data.Length;
+                var blockProgress = 0;
+                var blockChunkDictionary = await (await RequestForNextBlock(currentPos, totalSize))
+                    .Aggregate(new Dictionary<int, byte[]>(),
+                        (Dictionary<int, byte[]> acc, (int index, byte[] value) chunk) =>
+                        {
+                            blockProgress += chunk.value.Length;
+                            progress((int) ((currentPos + blockProgress) * 100 / totalSize));
+                            acc[chunk.index] = chunk.value;
+                            return acc;
+                        });
+                var block = blockChunkDictionary.ToImmutableSortedDictionary().Select(pair => pair.Value)
+                    .Aggregate((acc, value) => acc.Concat(value).ToArray());
+                Debug.WriteLine($"receiveBlock size({block.Length})");
+                data = data.Concat(block).ToArray();
+            }
+
+            return ImageTransmission.forInput(data).ImageData;
+        }
+
+        /**
+         * Request in file input control pipe
+         * +------------+--------------------------------------------------------------------------------------------+
+         * | requestTag |                                     requestData                                            |
+         * +------------+----------+-------------+------------+---------------+-----------------+--------------------+
+         * |            |  imageId |  currentPos |  BlockSize |  maxChunkSize |  transferMethod |  l2capChannelOrPsm |
+         * |            |          |             |            |               |                 |                    |
+         * | 1 byte     |  2 bytes |  4 bytes    |  4 bytes   |  2bytes       |  1 byte         |  2 bytes           |
+         * +------------+----------+-------------+------------+---------------+-----------------+--------------------+
+         *
+         * [maxChunkSize] not larger than (0xFFFF + 1)
+         *
+         * Response in file input data pipe
+         * +--------------------------------+
+         * |             block              |
+         * +----------+----------+----------+
+         * | chunk    |   ...    |  chunk   |
+         * +----------+----------+----------+
+         */
+        private async Task<IObservable<(int, byte[])>> RequestForNextBlock(int currentPos, long totalSize)
+        {
+            var maxChunkSize = _notepadType.mtu - 3 /*GATT_HEADER_LENGTH*/ - 1 /*responseTag*/ - 1;
+            var maxBlockSize = maxChunkSize * (0xFF + 1); // chunkSeqId(1 byte) -> maxChunkPerBlock
+            var blockSize = Math.Min(totalSize - currentPos, maxBlockSize);
+            var transferMethod = (byte) 0x00;
+            var l2capChannelOrPsm = (short) 0x0004;
+
+            Debug.WriteLine(
+                $"requestForNextBlock currentPos {currentPos}, totalSize {totalSize}, blockSize {blockSize}, maxChunkSize {maxChunkSize}");
+
+            byte[] request;
+            using (var stream = new MemoryStream())
+            {
+                using (var writer = new BinaryWriter(stream))
+                {
+                    writer.Write((byte) 0x04);
+                    writer.Write(FileInfo.imageId);
+                    writer.Write(currentPos);
+                    writer.Write((int) blockSize);
+                    writer.Write((short) maxChunkSize);
+                    writer.Write(transferMethod);
+                    writer.Write(l2capChannelOrPsm);
+                }
+
+                request = stream.ToArray();
+            }
+
+            var chunkCountCeil = (int) Math.Ceiling(blockSize * 1.0 / maxChunkSize);
+            var indexedChunkObservable = ReceiveChunks(chunkCountCeil);
+
+            _notepadType.SendRequestAsync("FileInputControl", FileInputControlRequestCharacteristic, request);
+
+            return indexedChunkObservable;
+        }
+
+        /**
+         * +-------------+--------------------------+
+         * | responseTag |       responseData       |
+         * +-------------+-------------+------------+
+         * |             |  chunkSeqId |  chunkData |
+         * |             |             |            |
+         * | 1 byte      |  1 byte     |  ...       |
+         * +-------------+-------------+------------+
+         */
+        private IObservable<(int, byte[])> ReceiveChunks(int count) =>
+            _notepadType.ReceiveFileInput()
+                .Where(value => value.First() == 0x05)
+                .Take(count)
+                .Select(value => ((int) value[1], value.Skip(2).ToArray()));
     }
 }

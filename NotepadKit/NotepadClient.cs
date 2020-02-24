@@ -13,10 +13,12 @@ namespace NotepadKit
         public abstract (string, string) CommandResponseCharacteristic { get; }
 
         public abstract (string, string) SyncInputCharacteristic { get; }
-        
+
         public abstract (string, string) FileInputControlRequestCharacteristic { get; }
-        
+
         public abstract (string, string) FileInputControlResponseCharacteristic { get; }
+
+        public abstract (string, string) FileInputCharacteristic { get; }
 
         public abstract IReadOnlyList<(string, string)> InputIndicationCharacteristics { get; }
 
@@ -36,5 +38,7 @@ namespace NotepadKit
         public abstract Task<MemoSummary> GetMemoSummary();
 
         public abstract Task<MemoInfo> GetMemoInfo();
+
+        public abstract Task<MemoData> ImportMemo(Action<int> progress);
     }
 }

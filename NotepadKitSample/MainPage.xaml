@@ -25,6 +25,7 @@
             <StackPanel Spacing="5">
                 <Button x:Name="button5" Content="GetMemoSummary" Click="button5_Click" />
                 <Button x:Name="button6" Content="GetMemoInfo" Click="button6_Click" />
+                <Button x:Name="button7" Content="ImportMemo" Click="button7_Click" />
             </StackPanel>
         </StackPanel>
     </RelativePanel>

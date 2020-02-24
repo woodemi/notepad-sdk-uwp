@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Windows.Devices.Bluetooth.Advertisement;
 
@@ -39,6 +40,14 @@ namespace NotepadKit
         public int y;
         public long t;
         public int p;
+
+        public NotePenPointer(int x, int y, long t, int p)
+        {
+            this.x = x;
+            this.y = y;
+            this.t = t;
+            this.p = p;
+        }
 
         public static NotePenPointer[] Create(byte[] bytes)
         {
@@ -86,5 +95,13 @@ namespace NotepadKit
         {
             return $"sizeInByte: {sizeInByte}, createdAt: {createdAt}, partIndex: {partIndex}, restCount: {restCount}";
         }
+    }
+
+    public struct MemoData
+    {
+        public MemoInfo memoInfo;
+        public List<NotePenPointer> pointers;
+
+        public override string ToString() => $"memoInfo: {memoInfo}, pointers: {pointers.Count}";
     }
 }

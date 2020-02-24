@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -81,6 +81,17 @@ namespace NotepadKitSample
         {
             _notepadClient.GetMemoInfo().ToObservable()
                 .Subscribe(memoInfo => Debug.WriteLine($"GetMemoInfo {memoInfo}"));
+        }
+
+        private void button7_Click(object sender, RoutedEventArgs e)
+        {
+            ImportMemoAsync();
+        }
+
+        private async void ImportMemoAsync()
+        {
+            var memoData = await _notepadClient.ImportMemo(i => Debug.WriteLine($"ImportMemo progress {i}"));
+            Debug.WriteLine($"memoData {memoData.pointers.Count}");
         }
     }
 }
