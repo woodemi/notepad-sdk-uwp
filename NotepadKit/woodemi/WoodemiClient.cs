@@ -96,6 +96,8 @@ namespace NotepadKit
             }
         }
 
+        #region SyncInput
+
         public override async Task SetMode(NotepadMode mode)
         {
             var command = new WoodemiCommand<byte[]>
@@ -114,6 +116,10 @@ namespace NotepadKit
             return NotePenPointer.Create(value)
                 .Where(p => 0 <= p.x && p.x <= A1_WIDTH && 0 <= p.y && p.y <= A1_HEIGHT).ToList();
         }
+
+        #endregion
+
+        #region ImportMemo
 
         public override async Task<MemoSummary> GetMemoSummary()
         {
@@ -331,5 +337,15 @@ namespace NotepadKit
                 .Where(value => value.First() == 0x05)
                 .Take(count)
                 .Select(value => ((int) value[1], value.Skip(2).ToArray()));
+
+        public override async Task DeleteMemo()
+        {
+            await _notepadType.SendRequestAsync("FileInputControl", FileInputControlRequestCharacteristic,
+                new byte[] {0x06, 0x00, 0x00, 0x00});
+            // FIXME Deal with 0x01 as notification instead of response
+            await Task.Delay(200);
+        }
+
+        #endregion
     }
 }

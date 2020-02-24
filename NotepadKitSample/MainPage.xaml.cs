@@ -93,5 +93,16 @@ namespace NotepadKitSample
             var memoData = await _notepadClient.ImportMemo(i => Debug.WriteLine($"ImportMemo progress {i}"));
             Debug.WriteLine($"memoData {memoData.pointers.Count}");
         }
+
+        private void button8_Click(object sender, RoutedEventArgs e)
+        {
+            DeleteMemoAsync();
+        }
+
+        private async void DeleteMemoAsync()
+        {
+            await _notepadClient.DeleteMemo();
+            Debug.WriteLine("DeleteMemo success");
+        }
     }
 }
