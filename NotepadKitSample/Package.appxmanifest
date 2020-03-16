@@ -8,9 +8,9 @@
   IgnorableNamespaces="uap mp">
 
   <Identity
-    Name="450af03b-4d3c-40a2-aa50-60be67d40dce"
-    Publisher="CN=woodemi"
-    Version="1.0.0.0" />
+          Name="450af03b-4d3c-40a2-aa50-60be67d40dce"
+          Publisher="CN=Woodemi Test, O=Woodemi Tech, C=CN"
+          Version="0.1.0.0"/>
 
   <mp:PhoneIdentity PhoneProductId="450af03b-4d3c-40a2-aa50-60be67d40dce" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -30,17 +30,22 @@
 
   <Applications>
     <Application Id="App"
-      Executable="$targetnametoken$.exe"
-      EntryPoint="NotepadKitSample.App">
-      <uap:VisualElements
-        DisplayName="NotepadKitSample"
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png"
-        Description="NotepadKitSample"
-        BackgroundColor="transparent">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"/>
-        <uap:SplashScreen Image="Assets\SplashScreen.png" />
-      </uap:VisualElements>
+                 Executable="$targetnametoken$.exe"
+                 EntryPoint="NotepadKitSample.App">
+        <uap:VisualElements
+                DisplayName="NotepadKitSample"
+                Square150x150Logo="Assets\Square150x150Logo.png"
+                Square44x44Logo="Assets\Square44x44Logo.png"
+                Description="NotepadKitSample"
+                BackgroundColor="transparent">
+            <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"/>
+            <uap:SplashScreen Image="Assets\SplashScreen.png"/>
+        </uap:VisualElements>
+        <Extensions>
+            <uap:Extension Category="windows.appService">
+                <uap:AppService Name="InjectPenHelper"/>
+            </uap:Extension>
+        </Extensions>
     </Application>
   </Applications>
 

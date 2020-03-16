@@ -1,18 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
+using System.Diagnostics;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
+using Windows.ApplicationModel.AppService;
+using Windows.ApplicationModel.Background;
 using Windows.Foundation.Collections;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 
 namespace NotepadKitSample
@@ -22,6 +16,12 @@ namespace NotepadKitSample
     /// </summary>
     sealed partial class App : Application
     {
+        private BackgroundTaskDeferral _appServiceDeferral;
+        private AppServiceConnection _appServiceConnection;
+
+        private InjectPenHelper _injectPenHelper = new InjectPenHelper();
+
+
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
         /// executed, and as such is the logical equivalent of main() or WinMain().
@@ -68,6 +68,7 @@ namespace NotepadKitSample
                     // parameter
                     rootFrame.Navigate(typeof(MainPage), e.Arguments);
                 }
+
                 // Ensure the current window is active
                 Window.Current.Activate();
             }
@@ -95,6 +96,53 @@ namespace NotepadKitSample
             var deferral = e.SuspendingOperation.GetDeferral();
             //TODO: Save application state and stop any background activity
             deferral.Complete();
+        }
+
+        protected override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
+        {
+            base.OnBackgroundActivated(args);
+            var taskInstance = args.TaskInstance;
+            _appServiceDeferral = taskInstance.GetDeferral();
+            taskInstance.Canceled += OnAppServicesCanceled;
+
+            var appService = taskInstance.TriggerDetails as AppServiceTriggerDetails;
+            _appServiceConnection = appService.AppServiceConnection;
+            _appServiceConnection.ServiceClosed += OnAppServiceConnection_ServiceClosed;
+            _appServiceConnection.RequestReceived += OnAppServiceConnection_RequestReceived;
+        }
+
+        private void OnAppServicesCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
+        {
+            _appServiceDeferral.Complete();
+        }
+
+        private void OnAppServiceConnection_ServiceClosed(AppServiceConnection sender, AppServiceClosedEventArgs args)
+        {
+            _appServiceDeferral.Complete();
+        }
+
+        private void OnAppServiceConnection_RequestReceived(AppServiceConnection sender,
+            AppServiceRequestReceivedEventArgs args)
+        {
+            var message = args.Request.Message;
+            var request = message["Request"] as String;
+            var arguments = message["Args"] as ValueSet;
+
+            switch (request)
+            {
+                case "InjectInput":
+                {
+                    var pointer = arguments["Pointer"] as ValueSet;
+                    int x = (int) pointer["X"];
+                    int y = (int) pointer["Y"];
+                    double p = (double) pointer["P"];
+                    Debug.WriteLine($"OnAppServiceConnection_RequestReceived {x}, {y}, {p}");
+                    _injectPenHelper.InjectInput(x, y, p);
+                    break;
+                }
+            }
+
+            args.GetDeferral().Complete();
         }
     }
 }

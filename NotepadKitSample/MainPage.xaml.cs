@@ -2,11 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reactive.Threading.Tasks;
-using System.Timers;
+using Windows.ApplicationModel.AppService;
 using Windows.Foundation;
+using Windows.Foundation.Collections;
 using Windows.Graphics.Display;
-using Windows.UI.Input.Preview.Injection;
 using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -22,11 +21,12 @@ namespace NotepadKitSample
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private readonly InjectPenHelper _injectPenHelper = new InjectPenHelper(new Size(14800, 21000), 512);
+        private readonly InjectPointHelper _injectPointHelper = new InjectPointHelper(new Size(14800, 21000), 512);
         private readonly NotepadConnector _notepadConnector = new NotepadConnector();
         private readonly NotepadScanner _notepadScanner = new NotepadScanner();
         private readonly List<NotepadScanResult> _scanResultList = new List<NotepadScanResult>();
         private NotepadClient _notepadClient;
+        private AppServiceConnection _appServiceConnection;
 
         public MainPage()
         {
@@ -65,7 +65,22 @@ namespace NotepadKitSample
             foreach (var pointer in args)
             {
                 Debug.WriteLine($"OnSyncPointerReceived {pointer}");
-                _injectPenHelper.InjectInput(pointer);
+                var (x, y, p) = _injectPointHelper.ToInputPoint(pointer.x, pointer.y, pointer.p);
+                if (_appServiceConnection != null)
+                {
+                    var message = new ValueSet();
+                    message["Request"] = "InjectInput";
+                    message["Args"] = new ValueSet
+                    {
+                        ["Pointer"] = new ValueSet
+                        {
+                            ["X"] = x,
+                            ["Y"] = y,
+                            ["P"] = p,
+                        }
+                    };
+                    _appServiceConnection.SendMessageAsync(message);
+                }
             }
         }
 
@@ -91,14 +106,34 @@ namespace NotepadKitSample
 
         private void button5_Click(object sender, RoutedEventArgs e)
         {
-            _notepadClient.GetMemoSummary().ToObservable()
-                .Subscribe(memoSummary => Debug.WriteLine($"GetMemoSummary {memoSummary}"));
+            //_notepadClient.GetMemoSummary().ToObservable()
+            //    .Subscribe(memoSummary => Debug.WriteLine($"GetMemoSummary {memoSummary}"));
+            StartInjectAsync();
+        }
+
+        private async void StartInjectAsync()
+        {
+            if (_appServiceConnection != null) return;
+
+            _appServiceConnection = new AppServiceConnection();
+            _appServiceConnection.AppServiceName = "InjectPenHelper";
+            _appServiceConnection.PackageFamilyName = "450af03b-4d3c-40a2-aa50-60be67d40dce_7t2jb1g64jh92";
+            var status = await _appServiceConnection.OpenAsync();
+
+            if (status != AppServiceConnectionStatus.Success)
+            {
+                Debug.WriteLine($"OpenAsync fail: {status}");
+                _appServiceConnection?.Dispose();
+                _appServiceConnection = null;
+            }
         }
 
         private void button6_Click(object sender, RoutedEventArgs e)
         {
-            _notepadClient.GetMemoInfo().ToObservable()
-                .Subscribe(memoInfo => Debug.WriteLine($"GetMemoInfo {memoInfo}"));
+            //_notepadClient.GetMemoInfo().ToObservable()
+            //    .Subscribe(memoInfo => Debug.WriteLine($"GetMemoInfo {memoInfo}"));
+            _appServiceConnection?.Dispose();
+            _appServiceConnection = null;
         }
 
         private void button7_Click(object sender, RoutedEventArgs e)
@@ -124,28 +159,21 @@ namespace NotepadKitSample
         }
     }
 
-    public class InjectPenHelper : IDisposable
+    public class InjectPointHelper
     {
-        private readonly InputInjector _inputInjector = InputInjector.TryCreate();
-
-        private readonly Timer _inRangeTimer;
-
-        private readonly int _maxPressure;
-
         private readonly Rect _validBounds;
 
         private readonly double _viewScale;
 
-        // private NotePenPointer? _lastNotePenPointer;
+        private readonly int _maxPressure;
 
-        private InjectedInputPenInfo _preInputPenInfo;
-
-        public InjectPenHelper(Size padSize, int maxPressure)
+        public InjectPointHelper(Size padSize, int maxPressure)
         {
             var displayInformation = DisplayInformation.GetForCurrentView();
             var scaleFactor = displayInformation.RawPixelsPerViewPixel;
             var screenSize = new Size((int) (displayInformation.ScreenWidthInRawPixels * scaleFactor),
                 (int) (displayInformation.ScreenHeightInRawPixels * scaleFactor));
+            Debug.WriteLine($"screenSize {screenSize.Width}, {screenSize.Height}");
             _viewScale = Math.Max(screenSize.Width * 1.0 / padSize.Width, screenSize.Height * 1.0 / padSize.Height);
             var widthPadding = padSize.Width * _viewScale - screenSize.Width;
             var heightPadding = padSize.Height * _viewScale - screenSize.Height;
@@ -154,109 +182,14 @@ namespace NotepadKitSample
             Debug.WriteLine($"_validBounds {_validBounds}");
 
             _maxPressure = maxPressure;
-
-            _inRangeTimer = new Timer
-            {
-                Interval = 500,
-                AutoReset = false
-            };
-            _inRangeTimer.Elapsed += OnTimedEvent;
-
-            _inputInjector.InitializePenInjection(InjectedInputVisualizationMode.Default);
         }
 
-        public void Dispose()
+        public (int, int, double) ToInputPoint(int penX, int penY, int penP)
         {
-            _inputInjector.UninitializePenInjection();
-
-            if (_inRangeTimer != null)
-                _inRangeTimer.Elapsed -= OnTimedEvent;
-            _inRangeTimer?.Dispose();
-        }
-
-        public void InjectInput(NotePenPointer pointer)
-        {
-            _inRangeTimer.Stop();
-
-            // var deltaX = _lastNotePenPointer.HasValue ? pointer.x - _lastNotePenPointer.Value.x : 0;
-            // var deltaY = _lastNotePenPointer.HasValue ? pointer.y - _lastNotePenPointer.Value.y : 0;
-            //
-            // var penInfo = ToInputPenInfo(deltaX, deltaY, pointer.p);
-            // var penInfo = ToInputPenInfo(pointer);
-            // Debug.WriteLine($"ToInputPenInfo {penInfo}");
-
-            var penInfo = ToInputPenInfo2(pointer);
-            Debug.WriteLine($"ToInputPenInfo2 {penInfo}");
-
-            _inputInjector.InjectPenInput(penInfo);
-            _preInputPenInfo = penInfo;
-
-            // _lastNotePenPointer = pointer;
-
-            _inRangeTimer.Start();
-        }
-
-        private void OnTimedEvent(object sender, ElapsedEventArgs args)
-        {
-            Debug.WriteLine($"OnTimedEvent {args.SignalTime}");
-            // _lastNotePenPointer = null;
-            _preInputPenInfo = null;
-        }
-
-        private InjectedInputPointerInfo ToInputPointerInfo(int x, int y, int p)
-        {
-            var pointerInfo = new InjectedInputPointerInfo
-            {
-                PixelLocation = new InjectedInputPoint {PositionX = x, PositionY = y}
-            };
-
-            if (_preInputPenInfo == null)
-                pointerInfo.PointerOptions = InjectedInputPointerOptions.New;
-            else if (_preInputPenInfo.Pressure <= 0 && p <= 0)
-                pointerInfo.PointerOptions |= InjectedInputPointerOptions.Update | InjectedInputPointerOptions.InRange;
-            else if (_preInputPenInfo.Pressure <= 0 && p > 0)
-                pointerInfo.PointerOptions |= InjectedInputPointerOptions.PointerDown |
-                                              InjectedInputPointerOptions.InRange |
-                                              InjectedInputPointerOptions.InContact;
-            else if (_preInputPenInfo.Pressure > 0 && p > 0)
-                pointerInfo.PointerOptions |= InjectedInputPointerOptions.Update | InjectedInputPointerOptions.InRange |
-                                              InjectedInputPointerOptions.InContact;
-            else if (_preInputPenInfo.Pressure > 0 && p <= 0)
-                pointerInfo.PointerOptions |=
-                    InjectedInputPointerOptions.PointerUp | InjectedInputPointerOptions.InRange;
-
-            return pointerInfo;
-        }
-
-        private InjectedInputPenInfo ToInputPenInfo(int deltaX, int deltaY, int p)
-        {
-            var preX = _preInputPenInfo?.PointerInfo.PixelLocation.PositionX ?? 0;
-            var preY = _preInputPenInfo?.PointerInfo.PixelLocation.PositionY ?? 0;
-            var x = (int) (preX + deltaX * _viewScale);
-            var y = (int) (preY + deltaY * _viewScale);
-            var pointerInfo = ToInputPointerInfo(x, y, p);
-
-            return new InjectedInputPenInfo
-            {
-                PenParameters = InjectedInputPenParameters.Pressure,
-                PointerInfo = pointerInfo,
-                Pressure = p / 512.0
-            };
-        }
-
-        private InjectedInputPenInfo ToInputPenInfo2(NotePenPointer penPointer)
-        {
-            var screenPoint = new Point(penPointer.x * _viewScale, penPointer.y * _viewScale);
+            var screenPoint = new Point(penX * _viewScale, penY * _viewScale);
             var x = Math.Max(_validBounds.Left, Math.Min(screenPoint.X, _validBounds.Right)) - _validBounds.Left;
             var y = Math.Max(_validBounds.Top, Math.Min(screenPoint.Y, _validBounds.Bottom)) - _validBounds.Top;
-            var pointerInfo = ToInputPointerInfo((int) x, (int) y, penPointer.p);
-
-            return new InjectedInputPenInfo
-            {
-                PenParameters = InjectedInputPenParameters.Pressure,
-                PointerInfo = pointerInfo,
-                Pressure = penPointer.p / _maxPressure
-            };
+            return ((int) x, (int) y, penP * 1.0 / _maxPressure);
         }
     }
 }
